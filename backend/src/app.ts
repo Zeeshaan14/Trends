@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://trends-kappa.vercel.app"
+    "https://nu-jerseys.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
