@@ -57,7 +57,7 @@ export const createOrder = asyncHandler(async (req: Request, res: Response) => {
         };
     });
 
-    const tax = subtotal * 0.18; // 18% GST
+    const tax = subtotal * 0; // 18% GST
     const total = subtotal + tax;
 
     // Create order with items
