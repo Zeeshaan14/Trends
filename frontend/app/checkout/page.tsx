@@ -20,7 +20,7 @@ export default function CheckoutPage() {
     const [agreedToTerms, setAgreedToTerms] = useState(false)
     const { toast } = useToast()
 
-    const tax = totalPrice * 0.18 // GST 18%
+    const tax = totalPrice * 0 // GST 18%
     const finalTotal = totalPrice + tax
 
     const [formData, setFormData] = useState({
