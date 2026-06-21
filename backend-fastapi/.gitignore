@@ -29,3 +29,6 @@ alembic/versions/*.pyc
 
 # uv
 uv.lock
+
+# SQLite (local dev only)
+*.db
