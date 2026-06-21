@@ -1,0 +1,33 @@
+from decimal import Decimal
+from typing import Optional
+from pydantic import BaseModel, Field
+
+class CreateJerseyRequest(BaseModel):
+    name: str
+    player: str
+    price: Decimal
+    originalPrice: Optional[Decimal] = None
+    image: str
+    downloadUrl: str
+    badge: Optional[str] = None
+    badgeColor: Optional[str] = None
+    categoryId: str
+
+class UpdateJerseyRequest(BaseModel):
+    name: Optional[str] = None
+    player: Optional[str] = None
+    price: Optional[Decimal] = None
+    originalPrice: Optional[Decimal] = None
+    image: Optional[str] = None
+    downloadUrl: Optional[str] = None
+    badge: Optional[str] = None
+    badgeColor: Optional[str] = None
+    categoryId: Optional[str] = None
+
+class JerseyFilterParams(BaseModel):
+    categoryId: Optional[str] = None
+    minPrice: Optional[float] = Field(None, ge=0)
+    maxPrice: Optional[float] = Field(None, ge=0)
+    search: Optional[str] = None
+    page: int = Field(1, ge=1)
+    limit: int = Field(20, ge=1, le=100)
