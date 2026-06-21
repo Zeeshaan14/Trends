@@ -28,12 +28,15 @@ app = FastAPI(
     docs_url="/docs"
 )
 
-# Security Headers Middleware
-@app.middleware("http")
-async def set_secure_headers(request, call_next):
-    response = await call_next(request)
-    secure_headers.set_headers(response)
-    return response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        secure_headers.set_headers(response)
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS Middleware
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
