@@ -15,7 +15,7 @@ import {
     ChevronRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getDashboardStats, AdminUser, DashboardStats } from "@/lib/api"
+import { getDashboardStats, AdminUser, DashboardStats, AdminLoginResponse } from "@/lib/api"
 
 export default function AdminDashboardPage() {
     const router = useRouter()
@@ -31,11 +31,11 @@ export default function AdminDashboardPage() {
             return
         }
 
-        const adminUser = JSON.parse(stored) as AdminUser
-        setAdmin(adminUser)
+        const session = JSON.parse(stored) as AdminLoginResponse
+        setAdmin(session.user)
 
         // Fetch dashboard stats
-        getDashboardStats(adminUser.id)
+        getDashboardStats(session.accessToken)
             .then(setStats)
             .catch((err) => {
                 console.error("Failed to fetch stats:", err)

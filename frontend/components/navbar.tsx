@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Search, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,13 +33,20 @@ export function SiteNavbar() {
       {/* Desktop Navigation */}
       <NavBody className="bg-background/80 dark:bg-background/80">
         {/* Logo */}
-        <Link href="/" className="relative z-20 flex items-center gap-1">
-          <span className="font-[var(--font-oswald)] text-2xl font-bold tracking-tight text-foreground">
-            NU
-          </span>
-          <span className="font-[var(--font-oswald)] text-2xl font-bold tracking-tight text-primary">
-            JERSEYS
-          </span>
+        <Link href="/" className="relative z-20 flex items-center">
+          <div 
+            className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
+            style={{
+              WebkitMaskImage: 'url(/nu3.png)',
+              WebkitMaskSize: 'contain',
+              WebkitMaskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'left center',
+              maskImage: 'url(/nu3.png)',
+              maskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              maskPosition: 'left center',
+            }}
+          />
         </Link>
 
         {/* Nav Items */}
@@ -59,13 +67,20 @@ export function SiteNavbar() {
       <MobileNav className="bg-background/80 dark:bg-background/80">
         <MobileNavHeader>
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1">
-            <span className="font-[var(--font-oswald)] text-xl font-bold tracking-tight text-foreground">
-              NU
-            </span>
-            <span className="font-[var(--font-oswald)] text-xl font-bold tracking-tight text-primary">
-              PRINTS
-            </span>
+          <Link href="/" className="flex items-center">
+            <div 
+              className="h-8 w-[120px] bg-gradient-to-r from-primary to-foreground"
+              style={{
+                WebkitMaskImage: 'url(/nu3.png)',
+                WebkitMaskSize: 'contain',
+                WebkitMaskRepeat: 'no-repeat',
+                WebkitMaskPosition: 'left center',
+                maskImage: 'url(/nu3.png)',
+                maskSize: 'contain',
+                maskRepeat: 'no-repeat',
+                maskPosition: 'left center',
+              }}
+            />
           </Link>
 
           {/* Right side icons and toggle */}

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Instagram, Twitter, Youtube, Facebook } from "lucide-react"
 
 const footerLinks = {
@@ -14,16 +15,14 @@ const footerLinks = {
   ],
   support: [
     { name: "Contact Us", href: "#" },
-  
-    { name: "Returns", href: "#" },
-    { name: "Size Guide", href: "#" },
     { name: "FAQ", href: "#" },
+    { name: "Licensing Help", href: "#" },
+    { name: "Download Guide", href: "#" },
   ],
   company: [
     { name: "About Us", href: "#" },
-    { name: "Careers", href: "#" },
-    { name: "Press", href: "#" },
-    { name: "Authenticity", href: "#" },
+    { name: "Designers", href: "#" },
+    { name: "Testimonials", href: "#" },
     { name: "Affiliates", href: "#" },
   ],
 }
@@ -43,9 +42,19 @@ export function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="inline-block mb-6">
-              <span className="font-[var(--font-oswald)] text-2xl font-bold tracking-tight text-foreground">
-                NU<span className="text-primary">PRINTS</span>
-              </span>
+              <div 
+                className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
+                style={{
+                  WebkitMaskImage: 'url(/nu3.png)',
+                  WebkitMaskSize: 'contain',
+                  WebkitMaskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'left center',
+                  maskImage: 'url(/nu3.png)',
+                  maskSize: 'contain',
+                  maskRepeat: 'no-repeat',
+                  maskPosition: 'left center',
+                }}
+              />
             </Link>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
               Your ultimate destination for premium jersey designs. Create your vision, represent your team.

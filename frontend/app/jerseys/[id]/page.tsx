@@ -5,7 +5,7 @@ import { useParams, useRouter, notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Star, Minus, Plus, ShoppingBag, Heart, ChevronRight, Truck, ShieldCheck } from "lucide-react"
+import { Star, Minus, Plus, ShoppingBag, Heart, ChevronRight, Truck, ShieldCheck, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,8 +23,7 @@ export default function JerseyPage() {
     const [relatedJerseys, setRelatedJerseys] = useState<Jersey[]>([])
     const [loading, setLoading] = useState(true)
     const [notFoundState, setNotFoundState] = useState(false)
-    const [quantity, setQuantity] = useState(1)
-    const { addItem } = useCart()
+    const { addItem, clearCart } = useCart()
 
     useEffect(() => {
         async function loadData() {
@@ -70,25 +69,16 @@ export default function JerseyPage() {
 
     if (!jersey) return null
 
-    const handleQuantityChange = (type: "increment" | "decrement") => {
-        if (type === "decrement" && quantity > 1) {
-            setQuantity(quantity - 1)
-        } else if (type === "increment") {
-            setQuantity(quantity + 1)
-        }
-    }
-
-    const handleAddToCart = () => {
-        for (let i = 0; i < quantity; i++) {
-            addItem({
-                id: jersey.id,
-                name: jersey.name,
-                player: jersey.player,
-                price: Number(jersey.price),
-                image: jersey.image,
-            })
-        }
-        setQuantity(1)
+    const handleDownload = () => {
+        clearCart()
+        addItem({
+            id: jersey.id,
+            name: jersey.name,
+            player: jersey.player,
+            price: Number(jersey.price),
+            image: jersey.image,
+        })
+        router.push("/checkout")
     }
 
     const price = Number(jersey.price)
@@ -145,19 +135,7 @@ export default function JerseyPage() {
                         </h1>
                         <p className="text-lg text-muted-foreground mb-4">{jersey.player}</p>
 
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                    <Star
-                                        key={i}
-                                        className={`h-5 w-5 ${i < Math.floor(jersey.rating) ? "fill-accent text-accent" : "fill-muted text-muted"}`}
-                                    />
-                                ))}
-                            </div>
-                            <span className="text-sm text-muted-foreground">
-                                {jersey.rating} ({jersey.reviewCount} reviews)
-                            </span>
-                        </div>
+
 
                         <div className="flex items-center gap-4 mb-8">
                             <span className="text-3xl font-bold text-foreground">
@@ -170,48 +148,26 @@ export default function JerseyPage() {
                             )}
                             {originalPrice && (
                                 <Badge variant="destructive">
-                                    Save ₹{originalPrice - price}
+                                    Save ₹{(originalPrice - price).toFixed(2)}
                                 </Badge>
                             )}
                         </div>
 
                         <p className="text-muted-foreground mb-8 leading-relaxed">
-                            Experience the authentic feel of the game with this premium quality jersey.
-                            Designed for comfort and durability, it features breathable fabric and
-                            official team colors. Perfect for game day or casual wear.
+                            Elevate your team's look with this premium digital jersey design.
+                            Fully customizable and ready for sublimation printing, this high-resolution vector
+                            file gives you complete control over colors, logos, and player details.
                         </p>
 
                         {/* Actions */}
                         <div className="flex flex-row flex-wrap gap-3 sm:gap-4 mb-8">
-                            <div className="flex items-center border border-border rounded-md shrink-0">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleQuantityChange("decrement")}
-                                    disabled={quantity <= 1}
-                                    className="h-10 w-10 sm:h-10 sm:w-10"
-                                >
-                                    <Minus className="h-4 w-4" />
-                                </Button>
-                                <span className="w-8 sm:w-12 text-center font-medium">{quantity}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleQuantityChange("increment")}
-                                    className="h-10 w-10 sm:h-10 sm:w-10"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </div>
-
                             <Button
                                 size="lg"
                                 className="flex-1 min-w-[140px] bg-primary hover:bg-primary/90 text-primary-foreground gap-2 h-11"
-                                onClick={handleAddToCart}
+                                onClick={handleDownload}
                             >
-                                <ShoppingBag className="h-5 w-5" />
-                                <span className="hidden xs:inline">Add to Cart</span>
-                                <span className="inline xs:hidden">Add to cart</span>
+                                <Download className="h-5 w-5" />
+                                <span>Download</span>
                             </Button>
 
                             <Button variant="outline" size="icon" className="h-11 w-11 shrink-0">
@@ -259,56 +215,44 @@ export default function JerseyPage() {
                             >
                                 Additional Information
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="reviews"
-                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-                            >
-                                Reviews ({jersey.reviewCount})
-                            </TabsTrigger>
+
                         </TabsList>
                         <TabsContent value="description" className="animate-in fade-in-50 duration-500">
                             <div className="prose prose-invert max-w-none text-muted-foreground">
                                 <p>
-                                    Elevate your fan gear with this official {jersey.name}. Crafted with precision and passion,
-                                    this jersey represents the spirit of the team and the dedication of the player.
-                                    Made from high-performance moisture-wicking fabric, it keeps you cool and dry whether
-                                    you're in the stands or on the court.
+                                    Get production-ready with the {jersey.name} digital design file. Crafted with precision for sportswear manufacturers and team managers, 
+                                    this premium vector template ensures high-quality sublimation printing with sharp, scalable graphics.
                                 </p>
                                 <ul className="list-disc pl-5 mt-4 space-y-2">
-                                    <li>Official team graphics and player name/number</li>
-                                    <li>Heat-sealed logos and details</li>
-                                    <li>Rib-knit collar and armholes for enhanced durability</li>
-                                    <li>Tailored fit for clearer movement</li>
-                                    <li>Matrix mesh side panels for breathability</li>
+                                    <li>100% Vector format (fully scalable without quality loss)</li>
+                                    <li>Ready for Sublimation Printing</li>
+                                    <li>Easily editable colors, text, and logos</li>
+                                    <li>Organized layers for quick customization</li>
+                                    <li>Includes front, back, and side panel layouts</li>
                                 </ul>
                             </div>
                         </TabsContent>
                         <TabsContent value="additional" className="animate-in fade-in-50 duration-500">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                                 <div className="flex justify-between py-2 border-b border-border">
-                                    <span className="font-medium">Material</span>
-                                    <span className="text-muted-foreground">100% Recycled Polyester</span>
+                                    <span className="font-medium">File Format</span>
+                                    <span className="text-muted-foreground">.AI, .CDR, .EPS, .PDF</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-border">
-                                    <span className="font-medium">Fit</span>
-                                    <span className="text-muted-foreground">Standard Fit</span>
+                                    <span className="font-medium">Color Mode</span>
+                                    <span className="text-muted-foreground">CMYK (Print Ready)</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-border">
-                                    <span className="font-medium">Care</span>
-                                    <span className="text-muted-foreground">Machine wash, tumble dry low</span>
+                                    <span className="font-medium">Delivery</span>
+                                    <span className="text-muted-foreground">Instant Download (ZIP)</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-border">
-                                    <span className="font-medium">Origin</span>
-                                    <span className="text-muted-foreground">Imported</span>
+                                    <span className="font-medium">License</span>
+                                    <span className="text-muted-foreground">Commercial Use</span>
                                 </div>
                             </div>
                         </TabsContent>
-                        <TabsContent value="reviews">
-                            <div className="text-center py-12 bg-secondary/20 rounded-lg">
-                                <p className="text-muted-foreground">No reviews yet for this product.</p>
-                                <Button variant="outline" className="mt-4">Write a Review</Button>
-                            </div>
-                        </TabsContent>
+
                     </Tabs>
                 </div>
 

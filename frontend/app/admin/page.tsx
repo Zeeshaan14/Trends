@@ -31,14 +31,14 @@ export default function AdminLoginPage() {
         setIsLoading(true)
 
         try {
-            const admin = await adminLogin(formData.email, formData.password)
+            const session = await adminLogin(formData.email, formData.password)
 
             // Store admin info in localStorage
-            localStorage.setItem("adminUser", JSON.stringify(admin))
+            localStorage.setItem("adminUser", JSON.stringify(session))
 
             toast({
                 title: "Login Successful",
-                description: `Welcome back, ${admin.companyName}!`,
+                description: `Welcome back, ${session.user.companyName}!`,
             })
 
             router.push("/admin/dashboard")

@@ -85,4 +85,30 @@ export interface Order {
     total: number
     items: OrderItem[]
     createdAt: string
+    razorpayOrderId?: string
+    razorpayKeyId?: string
+}
+
+export interface VerifyPaymentRequest {
+    orderId: string
+    razorpayOrderId: string
+    razorpayPaymentId: string
+    razorpaySignature: string
+}
+
+export interface VerifyPaymentResponse {
+    payment: {
+        id: string
+        status: string
+        amount: number
+    }
+    order: {
+        id: string
+        status: string
+    }
+    downloadLinks: {
+        jerseyId: number
+        name: string
+        downloadUrl: string
+    }[]
 }

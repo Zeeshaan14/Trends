@@ -11,7 +11,8 @@ import { useCart } from "@/context/cart-context"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
-import { createOrder } from "@/lib/api"
+import { createOrder, verifyPayment } from "@/lib/api"
+import { openRazorpayCheckout } from "@/lib/razorpay"
 
 export default function CheckoutPage() {
     const router = useRouter()
@@ -93,22 +94,75 @@ export default function CheckoutPage() {
                 })),
             })
 
-            // Clear cart and show success
-            clearCart()
-            toast({
-                title: "Order Placed Successfully!",
-                description: "Check your email for the download link.",
-            })
+            // Open Razorpay Checkout
+            if (order.razorpayOrderId && order.razorpayKeyId) {
+                await openRazorpayCheckout({
+                    key: order.razorpayKeyId,
+                    amount: Math.round(finalTotal * 100), // Expected in paise
+                    currency: "INR",
+                    name: "NuJerseys",
+                    description: "Digital Design Purchase",
+                    order_id: order.razorpayOrderId,
+                    prefill: {
+                        name: formData.companyName,
+                        email: formData.email,
+                        contact: formData.phone,
+                    },
+                    theme: {
+                        color: "#0f172a", // Match your primary color
+                    },
+                    handler: async function (response) {
+                        try {
+                            setIsProcessing(true) // Re-enable processing state for verification
+                            await verifyPayment({
+                                orderId: order.id,
+                                razorpayOrderId: response.razorpay_order_id,
+                                razorpayPaymentId: response.razorpay_payment_id,
+                                razorpaySignature: response.razorpay_signature,
+                            })
 
-            // Redirect to order confirmation page (or home for now)
-            router.push(`/order/${order.id}`)
+                            // Clear cart and show success
+                            clearCart()
+                            toast({
+                                title: "Payment Successful!",
+                                description: "Your order is confirmed and download links are ready.",
+                            })
+                            router.push(`/order/${order.id}`)
+                        } catch (verifyError: any) {
+                            setIsProcessing(false)
+                            toast({
+                                title: "Verification Failed",
+                                description: verifyError.message || "Payment verification failed. Please contact support.",
+                                variant: "destructive"
+                            })
+                            // Redirect to order page to show pending status
+                            router.push(`/order/${order.id}`)
+                        }
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            setIsProcessing(false)
+                            toast({
+                                title: "Payment Cancelled",
+                                description: "You can retry payment from the order page.",
+                            })
+                            // Clear cart and redirect to pending order so they can retry
+                            clearCart()
+                            router.push(`/order/${order.id}`)
+                        }
+                    }
+                })
+            } else {
+                 throw new Error("Razorpay integration details missing from server.")
+            }
+
         } catch (error: any) {
+            setIsProcessing(false)
             toast({
                 title: "Order Failed",
                 description: error.message || "Something went wrong. Please try again.",
+                variant: "destructive"
             })
-        } finally {
-            setIsProcessing(false)
         }
     }
 
@@ -339,7 +393,7 @@ export default function CheckoutPage() {
                                 disabled={isProcessing || !agreedToTerms}
                                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base h-12 disabled:opacity-50"
                             >
-                                {isProcessing ? "Processing..." : "Complete Purchase"}
+                                {isProcessing ? "Processing..." : `Pay with Razorpay ₹${finalTotal.toFixed(2)}`}
                             </Button>
 
                             <p className="text-xs text-center text-muted-foreground mt-4">

@@ -8,13 +8,13 @@ import { ArrowLeft, Plus, Shirt, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import { getJerseys, getCategories, createJerseyAdmin, AdminUser } from "@/lib/api"
+import { getJerseys, getCategories, createJerseyAdmin, AdminLoginResponse } from "@/lib/api"
 import { Jersey, Category } from "@/lib/types"
 
 export default function AdminJerseysPage() {
     const router = useRouter()
     const { toast } = useToast()
-    const [admin, setAdmin] = useState<AdminUser | null>(null)
+    const [session, setSession] = useState<AdminLoginResponse | null>(null)
     const [jerseys, setJerseys] = useState<Jersey[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
@@ -39,7 +39,7 @@ export default function AdminJerseysPage() {
             router.push("/admin")
             return
         }
-        setAdmin(JSON.parse(stored))
+        setSession(JSON.parse(stored))
     }, [router])
 
     useEffect(() => {
@@ -57,7 +57,7 @@ export default function AdminJerseysPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!admin) return
+        if (!session) return
 
         if (!formData.name || !formData.player || !formData.price || !formData.image || !formData.downloadUrl || !formData.categoryId) {
             toast({ title: "Missing Fields", description: "Please fill in all required fields." })
@@ -66,7 +66,7 @@ export default function AdminJerseysPage() {
 
         setSubmitting(true)
         try {
-            const newJersey = await createJerseyAdmin(admin.id, {
+            const newJersey = await createJerseyAdmin(session.accessToken, {
                 name: formData.name,
                 player: formData.player,
                 price: parseFloat(formData.price),

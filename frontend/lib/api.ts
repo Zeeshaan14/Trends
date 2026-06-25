@@ -96,6 +96,14 @@ export async function createOrder(data: CreateOrderRequest): Promise<Order> {
     return response.data
 }
 
+export async function verifyPayment(data: import("./types").VerifyPaymentRequest): Promise<import("./types").VerifyPaymentResponse> {
+    const response = await fetchApi<ApiResponse<import("./types").VerifyPaymentResponse>>("/payments/verify", {
+        method: "POST",
+        body: JSON.stringify(data),
+    })
+    return response.data
+}
+
 // ============================================
 // Admin API
 // ============================================
@@ -105,6 +113,12 @@ export interface AdminUser {
     email: string
     companyName: string
     role: string
+}
+
+export interface AdminLoginResponse {
+    accessToken: string
+    refreshToken: string
+    user: AdminUser
 }
 
 export interface DashboardStats {
@@ -150,34 +164,34 @@ export interface AdminOrder {
     } | null
 }
 
-export async function adminLogin(email: string, password: string): Promise<AdminUser> {
-    const response = await fetchApi<ApiResponse<AdminUser>>("/auth/admin/login", {
+export async function adminLogin(email: string, password: string): Promise<AdminLoginResponse> {
+    const response = await fetchApi<ApiResponse<AdminLoginResponse>>("/auth/admin/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
     })
     return response.data
 }
 
-export async function getDashboardStats(adminId: string): Promise<DashboardStats> {
+export async function getDashboardStats(token: string): Promise<DashboardStats> {
     const response = await fetchApi<ApiResponse<DashboardStats>>("/admin/dashboard", {
-        headers: { "x-user-id": adminId },
+        headers: { "Authorization": `Bearer ${token}` },
     })
     return response.data
 }
 
-export async function getAdminOrders(adminId: string, status?: string): Promise<{ data: AdminOrder[]; pagination: any }> {
+export async function getAdminOrders(token: string, status?: string): Promise<{ data: AdminOrder[]; pagination: any }> {
     const params = new URLSearchParams()
     if (status) params.set("status", status)
     const query = params.toString()
 
     const response = await fetchApi<{ success: boolean; data: AdminOrder[]; pagination: any }>(
         `/admin/orders${query ? `?${query}` : ""}`,
-        { headers: { "x-user-id": adminId } }
+        { headers: { "Authorization": `Bearer ${token}` } }
     )
     return { data: response.data, pagination: response.pagination }
 }
 
-export async function createJerseyAdmin(adminId: string, data: {
+export async function createJerseyAdmin(token: string, data: {
     name: string
     player: string
     price: number
@@ -190,16 +204,16 @@ export async function createJerseyAdmin(adminId: string, data: {
 }): Promise<Jersey> {
     const response = await fetchApi<ApiResponse<Jersey>>("/admin/jerseys", {
         method: "POST",
-        headers: { "x-user-id": adminId },
+        headers: { "Authorization": `Bearer ${token}` },
         body: JSON.stringify(data),
     })
     return response.data
 }
 
-export async function updateOrderStatus(adminId: string, orderId: string, status: string): Promise<any> {
+export async function updateOrderStatus(token: string, orderId: string, status: string): Promise<any> {
     const response = await fetchApi<ApiResponse<any>>(`/admin/orders/${orderId}/status`, {
         method: "PATCH",
-        headers: { "x-user-id": adminId },
+        headers: { "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ status }),
     })
     return response.data

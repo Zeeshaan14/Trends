@@ -19,6 +19,7 @@ dependencies = [
     "secure>=2.0.1",
     "cuid>=0.4",
     "aiosqlite>=0.22.1",
+    "razorpay>=1.4.0",
 ]
 
 [dependency-groups]

@@ -17,6 +17,8 @@ class Payment(Base):
     method: Mapped[str] = mapped_column(String)
     status: Mapped[PaymentStatus] = mapped_column(SAEnum(PaymentStatus, native_enum=False), default=PaymentStatus.PENDING)
     transaction_id: Mapped[Optional[str]] = mapped_column("transactionId", String, nullable=True)
+    razorpay_payment_id: Mapped[Optional[str]] = mapped_column("razorpayPaymentId", String, nullable=True)
+    razorpay_signature: Mapped[Optional[str]] = mapped_column("razorpaySignature", String, nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())

@@ -12,6 +12,8 @@ from app.schemas.order import CreateOrderRequest
 from app.schemas.common import ApiResponse
 from app.dependencies.auth import get_current_user
 from app.exceptions import ApiException
+from app.config import settings
+from app.services.razorpay_service import create_razorpay_order
 
 router = APIRouter()
 
@@ -68,6 +70,17 @@ async def create_order(request: CreateOrderRequest, db: AsyncSession = Depends(g
         )
         db.add(oi)
         order_items.append(oi)
+
+    # Create Razorpay order
+    try:
+        razorpay_order = create_razorpay_order(
+            amount_inr=total,
+            receipt=order.id,
+        )
+        order.razorpay_order_id = razorpay_order["id"]
+    except Exception as e:
+        await db.rollback()
+        raise ApiException(f"Failed to create payment order: {str(e)}", 500)
         
     await db.commit()
     
@@ -78,7 +91,9 @@ async def create_order(request: CreateOrderRequest, db: AsyncSession = Depends(g
             "id": order.id,
             "status": order.status,
             "subtotal": float(order.subtotal),
-            "total": float(order.total)
+            "total": float(order.total),
+            "razorpayOrderId": order.razorpay_order_id,
+            "razorpayKeyId": settings.RAZORPAY_KEY_ID,
         }
     )
 
@@ -105,10 +120,13 @@ async def get_order_by_id(id: str, db: AsyncSession = Depends(get_db)):
             "status": order.status,
             "subtotal": float(order.subtotal),
             "total": float(order.total),
+            "razorpayOrderId": order.razorpay_order_id,
+            "razorpayKeyId": settings.RAZORPAY_KEY_ID,
             "user": {
                 "id": order.user.id,
                 "email": order.user.email,
-                "companyName": order.user.company_name
+                "companyName": order.user.company_name,
+                "phone": order.user.phone,
             },
             "payment": {"id": order.payment.id, "status": order.payment.status} if order.payment else None,
             "items": [

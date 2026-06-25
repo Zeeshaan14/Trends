@@ -1,12 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { CheckCircle, Download, ArrowRight, Package } from "lucide-react"
+import { CheckCircle, Download, ArrowRight, Package, AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { useToast } from "@/components/ui/use-toast"
+import { verifyPayment } from "@/lib/api"
+import { openRazorpayCheckout } from "@/lib/razorpay"
 
 interface OrderItem {
     id: string
@@ -28,10 +31,13 @@ interface Order {
     subtotal: number
     tax: number
     total: number
+    razorpayOrderId?: string
+    razorpayKeyId?: string
     items: OrderItem[]
     user: {
         companyName: string
         email: string
+        phone: string
     }
     createdAt: string
 }
@@ -39,9 +45,84 @@ interface Order {
 export default function OrderConfirmationPage() {
     const params = useParams()
     const orderId = params.id as string
+    const router = useRouter()
+    const { toast } = useToast()
     const [order, setOrder] = useState<Order | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [isRetrying, setIsRetrying] = useState(false)
+
+    const handleRetryPayment = async () => {
+        if (!order || !order.razorpayOrderId || !order.razorpayKeyId) {
+            toast({
+                title: "Error",
+                description: "Missing payment details. Please contact support.",
+                variant: "destructive"
+            })
+            return
+        }
+
+        setIsRetrying(true)
+
+        try {
+            await openRazorpayCheckout({
+                key: order.razorpayKeyId,
+                amount: Math.round(order.total * 100),
+                currency: "INR",
+                name: "NuJerseys",
+                description: "Digital Design Purchase",
+                order_id: order.razorpayOrderId,
+                prefill: {
+                    name: order.user.companyName,
+                    email: order.user.email,
+                    contact: order.user.phone,
+                },
+                theme: {
+                    color: "#0f172a",
+                },
+                handler: async function (response) {
+                    try {
+                        await verifyPayment({
+                            orderId: order.id,
+                            razorpayOrderId: response.razorpay_order_id,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpaySignature: response.razorpay_signature,
+                        })
+
+                        toast({
+                            title: "Payment Successful!",
+                            description: "Your order is confirmed and download links are ready.",
+                        })
+                        // Refresh the page to get the updated order status and download links
+                        window.location.reload()
+                    } catch (verifyError: any) {
+                        toast({
+                            title: "Verification Failed",
+                            description: verifyError.message || "Payment verification failed. Please contact support.",
+                            variant: "destructive"
+                        })
+                        setIsRetrying(false)
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        setIsRetrying(false)
+                        toast({
+                            title: "Payment Cancelled",
+                            description: "You can retry payment anytime.",
+                        })
+                    }
+                }
+            })
+        } catch (error: any) {
+            setIsRetrying(false)
+            toast({
+                title: "Error",
+                description: error.message || "Failed to initialize payment gateway.",
+                variant: "destructive"
+            })
+        }
+    }
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -98,17 +179,33 @@ export default function OrderConfirmationPage() {
     return (
         <div className="min-h-screen bg-background pt-32 pb-16 px-4">
             <div className="max-w-3xl mx-auto">
-                {/* Success Header */}
+                {/* Status Header */}
                 <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20 mb-6">
-                        <CheckCircle className="h-10 w-10 text-green-500" />
-                    </div>
-                    <h1 className="font-[var(--font-oswald)] text-4xl sm:text-5xl font-bold text-foreground mb-4">
-                        ORDER CONFIRMED!
-                    </h1>
-                    <p className="text-muted-foreground text-lg">
-                        Thank you for your purchase, {order.user.companyName}
-                    </p>
+                    {order.status === "PAID" ? (
+                        <>
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20 mb-6">
+                                <CheckCircle className="h-10 w-10 text-green-500" />
+                            </div>
+                            <h1 className="font-[var(--font-oswald)] text-4xl sm:text-5xl font-bold text-foreground mb-4">
+                                ORDER CONFIRMED!
+                            </h1>
+                            <p className="text-muted-foreground text-lg">
+                                Thank you for your purchase, {order.user.companyName}
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/20 mb-6">
+                                <AlertCircle className="h-10 w-10 text-yellow-500" />
+                            </div>
+                            <h1 className="font-[var(--font-oswald)] text-4xl sm:text-5xl font-bold text-foreground mb-4">
+                                PAYMENT PENDING
+                            </h1>
+                            <p className="text-muted-foreground text-lg">
+                                Complete your payment to get your designs, {order.user.companyName}
+                            </p>
+                        </>
+                    )}
                     <p className="text-sm text-muted-foreground mt-2">
                         Order ID: <span className="font-mono text-foreground">{order.id}</span>
                     </p>
@@ -140,6 +237,16 @@ export default function OrderConfirmationPage() {
                                         <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
                                         <span className="font-semibold text-foreground">₹{Number(item.price).toFixed(2)}</span>
                                     </div>
+                                    {order.status === "PAID" && item.jersey.downloadUrl && (
+                                        <div className="mt-3">
+                                            <a href={item.jersey.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                                <Button size="sm" className="w-full sm:w-auto">
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download Design
+                                                </Button>
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -185,6 +292,23 @@ export default function OrderConfirmationPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    {order.status === "PENDING" && (
+                        <Button 
+                            size="lg" 
+                            className="w-full sm:w-auto bg-primary"
+                            onClick={handleRetryPayment}
+                            disabled={isRetrying}
+                        >
+                            {isRetrying ? (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    Processing...
+                                </>
+                            ) : (
+                                "Pay Now"
+                            )}
+                        </Button>
+                    )}
                     <Link href="/">
                         <Button variant="outline" size="lg" className="w-full sm:w-auto">
                             Continue Shopping
