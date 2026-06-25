@@ -14,7 +14,7 @@ from app.exceptions import ApiException
 
 router = APIRouter()
 
-@router.get("/", response_model=PaginatedResponse)
+@router.get("", response_model=PaginatedResponse)
 async def get_all_jerseys(
     categoryId: Optional[str] = None,
     minPrice: Optional[float] = None,
@@ -114,7 +114,7 @@ async def get_jersey_by_id(id: int, db: AsyncSession = Depends(get_db)):
         }
     )
 
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse, status_code=201)
 async def create_jersey(
     request: CreateJerseyRequest,
     db: AsyncSession = Depends(get_db),

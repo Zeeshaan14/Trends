@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
-@router.get("/", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse)
 async def get_all_categories(db: AsyncSession = Depends(get_db)):
     import traceback
     try:
@@ -64,7 +64,7 @@ async def get_category_by_id(id: str, db: AsyncSession = Depends(get_db)):
         }
     )
 
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse, status_code=201)
 async def create_category(
     request: CreateCategoryRequest, 
     db: AsyncSession = Depends(get_db),

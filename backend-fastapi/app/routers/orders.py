@@ -15,7 +15,7 @@ from app.exceptions import ApiException
 
 router = APIRouter()
 
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse, status_code=201)
 async def create_order(request: CreateOrderRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == request.email))
     user = result.scalar_one_or_none()
@@ -128,7 +128,7 @@ async def get_order_by_id(id: str, db: AsyncSession = Depends(get_db)):
         }
     )
 
-@router.get("/", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse)
 async def get_user_orders(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
     result = await db.execute(
         select(Order)

@@ -13,7 +13,7 @@ from app.exceptions import ApiException
 
 router = APIRouter()
 
-@router.get("/", response_model=ApiResponse)
+@router.get("", response_model=ApiResponse)
 async def get_cart(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
     result = await db.execute(
         select(Cart)
@@ -157,7 +157,7 @@ async def remove_from_cart(
         
     return ApiResponse(success=True, message="Item removed from cart")
 
-@router.delete("/", response_model=ApiResponse)
+@router.delete("", response_model=ApiResponse)
 async def clear_cart(db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
     result = await db.execute(select(Cart).where(Cart.user_id == user.id))
     cart = result.scalar_one_or_none()

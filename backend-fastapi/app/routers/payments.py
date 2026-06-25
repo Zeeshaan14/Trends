@@ -13,7 +13,7 @@ from app.exceptions import ApiException
 
 router = APIRouter()
 
-@router.post("/", response_model=ApiResponse, status_code=201)
+@router.post("", response_model=ApiResponse, status_code=201)
 async def process_payment(request: ProcessPaymentRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Order)

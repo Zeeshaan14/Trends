@@ -38,7 +38,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS Middleware
+# Rate Limiting
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+# CORS must be the outermost middleware so preflight requests are handled first
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
@@ -48,10 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Rate Limiting
-app.state.limiter = limiter
-app.add_middleware(SlowAPIMiddleware)
 
 # Exception Handlers
 app.add_exception_handler(ApiException, api_exception_handler)

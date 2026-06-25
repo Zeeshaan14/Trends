@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.enums import Role
 from app.schemas.auth import RegisterUserRequest, AdminLoginRequest, TokenResponse, RefreshTokenRequest
 from app.schemas.common import ApiResponse
-from app.security.passwords import verify_password
+from app.security.passwords import verify_password, get_password_hash, is_bcrypt_hash
 from app.security.jwt import create_access_token, create_refresh_token, decode_token
 from app.exceptions import ApiException
 
@@ -57,6 +57,10 @@ async def admin_login(request: AdminLoginRequest, db: AsyncSession = Depends(get
         
     if not user.password or not verify_password(request.password, user.password):
         raise ApiException("Invalid credentials", 401)
+
+    if not is_bcrypt_hash(user.password):
+        user.password = get_password_hash(request.password)
+        await db.commit()
         
     access_token = create_access_token(subject=user.id)
     refresh_token = create_refresh_token(subject=user.id)
