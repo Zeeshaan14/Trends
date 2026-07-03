@@ -23,7 +23,7 @@ export interface Jersey {
     rating: number
     reviewCount: number
     image: string
-    downloadUrl: string
+    hasDesignFile?: boolean
     badge: string | null
     badgeColor: string | null
     categoryId: string
@@ -106,9 +106,9 @@ export interface VerifyPaymentResponse {
         id: string
         status: string
     }
-    downloadLinks: {
+    downloadItems: {
         jerseyId: number
         name: string
-        downloadUrl: string
+        hasDesignFile: boolean
     }[]
 }

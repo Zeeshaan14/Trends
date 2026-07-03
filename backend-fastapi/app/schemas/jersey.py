@@ -8,7 +8,6 @@ class CreateJerseyRequest(BaseModel):
     price: Decimal
     originalPrice: Optional[Decimal] = None
     image: str
-    downloadUrl: str
     badge: Optional[str] = None
     badgeColor: Optional[str] = None
     categoryId: str
@@ -19,7 +18,6 @@ class UpdateJerseyRequest(BaseModel):
     price: Optional[Decimal] = None
     originalPrice: Optional[Decimal] = None
     image: Optional[str] = None
-    downloadUrl: Optional[str] = None
     badge: Optional[str] = None
     badgeColor: Optional[str] = None
     categoryId: Optional[str] = None

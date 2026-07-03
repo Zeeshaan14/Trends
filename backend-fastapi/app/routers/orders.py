@@ -14,6 +14,7 @@ from app.dependencies.auth import get_current_user
 from app.exceptions import ApiException
 from app.config import settings
 from app.services.razorpay_service import create_razorpay_order
+from app.services.r2_service import generate_presigned_url
 
 router = APIRouter()
 
@@ -139,7 +140,7 @@ async def get_order_by_id(id: str, db: AsyncSession = Depends(get_db)):
                         "name": item.jersey.name,
                         "image": item.jersey.image,
                         "player": item.jersey.player,
-                        "downloadUrl": item.jersey.download_url if order.status == OrderStatus.PAID else None
+                        "hasDesignFile": bool(item.jersey.r2_file_key) if order.status == OrderStatus.PAID else False
                     }
                 } for item in order.items
             ]
@@ -181,3 +182,57 @@ async def get_user_orders(db: AsyncSession = Depends(get_db), user=Depends(get_c
         })
         
     return ApiResponse(success=True, data=data)
+
+
+@router.get("/{order_id}/download/{jersey_id}", response_model=ApiResponse)
+async def download_design(
+    order_id: str,
+    jersey_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """
+    Generate a presigned R2 download URL for a specific jersey design.
+    Requires: authenticated user, order ownership, paid status.
+    """
+    # 1. Fetch order with items and jerseys
+    result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items).selectinload(OrderItem.jersey))
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise ApiException("Order not found", 404)
+
+    # 2. Verify ownership
+    if order.user_id != user.id:
+        raise ApiException("Not authorized", 403)
+
+    # 3. Verify payment
+    if order.status != OrderStatus.PAID:
+        raise ApiException("Payment not completed", 402)
+
+    # 4. Find the jersey in order items
+    target_item = next(
+        (item for item in order.items if item.jersey_id == jersey_id), None
+    )
+    if not target_item:
+        raise ApiException("Jersey not found in this order", 404)
+
+    # 5. Check R2 file exists
+    if not target_item.jersey.r2_file_key:
+        raise ApiException("Design file not available", 404)
+
+    # 6. Generate presigned URL (15 min expiry)
+    signed_url = generate_presigned_url(target_item.jersey.r2_file_key)
+
+    # 7. Increment download count
+    order.download_count += 1
+    await db.commit()
+
+    return ApiResponse(
+        success=True,
+        data={"download_url": signed_url, "expires_in": 900}
+    )

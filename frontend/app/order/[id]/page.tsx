@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { CheckCircle, Download, ArrowRight, Package, AlertCircle, RefreshCw } from "lucide-react"
+import { CheckCircle, Download, ArrowRight, Package, AlertCircle, RefreshCw, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
-import { verifyPayment } from "@/lib/api"
+import { verifyPayment, getDesignDownloadUrl } from "@/lib/api"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 
 interface OrderItem {
@@ -21,7 +21,7 @@ interface OrderItem {
         name: string
         player: string
         image: string
-        downloadUrl?: string
+        hasDesignFile?: boolean
     }
 }
 
@@ -51,6 +51,7 @@ export default function OrderConfirmationPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [isRetrying, setIsRetrying] = useState(false)
+    const [downloadingJerseyId, setDownloadingJerseyId] = useState<number | null>(null)
 
     const handleRetryPayment = async () => {
         if (!order || !order.razorpayOrderId || !order.razorpayKeyId) {
@@ -121,6 +122,34 @@ export default function OrderConfirmationPage() {
                 description: error.message || "Failed to initialize payment gateway.",
                 variant: "destructive"
             })
+        }
+    }
+
+    const handleDownload = async (jerseyId: number) => {
+        const stored = localStorage.getItem("adminUser")
+        if (!stored) {
+            toast({
+                title: "Authentication Required",
+                description: "Please log in to download your designs.",
+                variant: "destructive"
+            })
+            return
+        }
+
+        const session = JSON.parse(stored)
+        setDownloadingJerseyId(jerseyId)
+
+        try {
+            const result = await getDesignDownloadUrl(orderId, jerseyId, session.accessToken)
+            window.open(result.download_url, "_blank")
+        } catch (err: any) {
+            toast({
+                title: "Download Failed",
+                description: err.message || "Failed to generate download link.",
+                variant: "destructive"
+            })
+        } finally {
+            setDownloadingJerseyId(null)
         }
     }
 
@@ -237,14 +266,26 @@ export default function OrderConfirmationPage() {
                                         <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
                                         <span className="font-semibold text-foreground">₹{Number(item.price).toFixed(2)}</span>
                                     </div>
-                                    {order.status === "PAID" && item.jersey.downloadUrl && (
+                                    {order.status === "PAID" && item.jersey.hasDesignFile && (
                                         <div className="mt-3">
-                                            <a href={item.jersey.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                                <Button size="sm" className="w-full sm:w-auto">
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    Download Design
-                                                </Button>
-                                            </a>
+                                            <Button
+                                                size="sm"
+                                                className="w-full sm:w-auto"
+                                                onClick={() => handleDownload(item.jersey.id)}
+                                                disabled={downloadingJerseyId === item.jersey.id}
+                                            >
+                                                {downloadingJerseyId === item.jersey.id ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Generating Link...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="mr-2 h-4 w-4" />
+                                                        Download Design
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
                                     )}
                                 </div>

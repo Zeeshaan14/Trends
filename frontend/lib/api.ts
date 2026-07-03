@@ -104,6 +104,18 @@ export async function verifyPayment(data: import("./types").VerifyPaymentRequest
     return response.data
 }
 
+export async function getDesignDownloadUrl(
+    orderId: string,
+    jerseyId: number,
+    token: string
+): Promise<{ download_url: string; expires_in: number }> {
+    const response = await fetchApi<ApiResponse<{ download_url: string; expires_in: number }>>(
+        `/orders/${orderId}/download/${jerseyId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+    )
+    return response.data
+}
+
 // ============================================
 // Admin API
 // ============================================
@@ -197,17 +209,36 @@ export async function createJerseyAdmin(token: string, data: {
     price: number
     originalPrice?: number
     image: string
-    downloadUrl: string
     badge?: string
     badgeColor?: string
     categoryId: string
+    designFile?: File
 }): Promise<Jersey> {
-    const response = await fetchApi<ApiResponse<Jersey>>("/admin/jerseys", {
+    const formData = new FormData()
+    formData.append("name", data.name)
+    formData.append("player", data.player)
+    formData.append("price", data.price.toString())
+    if (data.originalPrice) formData.append("originalPrice", data.originalPrice.toString())
+    formData.append("image", data.image)
+    if (data.badge) formData.append("badge", data.badge)
+    if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
+    formData.append("categoryId", data.categoryId)
+    if (data.designFile) formData.append("design_file", data.designFile)
+
+    const url = `${API_BASE}/jerseys`
+    const response = await fetch(url, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(data),
+        body: formData,
     })
-    return response.data
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Request failed" }))
+        throw new ApiError(response.status, error.message || error.error || "Request failed")
+    }
+
+    const json = await response.json()
+    return json.data
 }
 
 export async function updateOrderStatus(token: string, orderId: string, status: string): Promise<any> {

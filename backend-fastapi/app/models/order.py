@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
-from sqlalchemy import String, ForeignKey, Numeric, DateTime, Enum as SAEnum
+from sqlalchemy import String, Integer, ForeignKey, Numeric, DateTime, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -20,6 +20,7 @@ class Order(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     razorpay_order_id: Mapped[Optional[str]] = mapped_column("razorpayOrderId", String, nullable=True)
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())
+    download_count: Mapped[int] = mapped_column("downloadCount", Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship(back_populates="orders")

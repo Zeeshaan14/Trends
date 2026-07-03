@@ -89,11 +89,11 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
                 "id": order.id,
                 "status": order.status,
             },
-            "downloadLinks": [
+            "downloadItems": [
                 {
                     "jerseyId": item.jersey.id,
                     "name": item.jersey.name,
-                    "downloadUrl": item.jersey.download_url,
+                    "hasDesignFile": bool(item.jersey.r2_file_key),
                 } for item in order.items
             ],
         }

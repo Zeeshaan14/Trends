@@ -139,3 +139,32 @@ async def get_all_users(
         data=[{"id": u.id, "email": u.email, "companyName": u.company_name, "role": u.role} for u in users],
         pagination=PaginationMeta(page=page, limit=limit, total=total, totalPages=math.ceil(total/limit))
     )
+
+@router.get("/designs", response_model=ApiResponse)
+async def get_design_status(
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(get_admin_user),
+):
+    """List all jerseys with their R2 design file upload status."""
+    result = await db.execute(
+        select(Jersey)
+        .options(selectinload(Jersey.category))
+        .order_by(Jersey.created_at.desc())
+    )
+    jerseys = result.scalars().all()
+
+    return ApiResponse(
+        success=True,
+        data=[
+            {
+                "id": j.id,
+                "name": j.name,
+                "player": j.player,
+                "image": j.image,
+                "r2FileKey": j.r2_file_key,
+                "hasDesign": bool(j.r2_file_key),
+                "category": {"id": j.category.id, "name": j.category.name} if j.category else None,
+            }
+            for j in jerseys
+        ],
+    )

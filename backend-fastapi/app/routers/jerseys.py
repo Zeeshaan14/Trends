@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Query
+from decimal import Decimal
+from fastapi import APIRouter, Depends, Query, Form, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -7,12 +8,38 @@ import math
 
 from app.db import get_db
 from app.models.jersey import Jersey
-from app.schemas.jersey import CreateJerseyRequest, UpdateJerseyRequest
+from app.schemas.jersey import JerseyFilterParams
 from app.schemas.common import PaginatedResponse, ApiResponse, PaginationMeta
 from app.dependencies.auth import get_admin_user
 from app.exceptions import ApiException
+from app.services.r2_service import upload_file_to_r2, delete_file_from_r2
 
 router = APIRouter()
+
+# --- File validation ---
+
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+
+
+def validate_design_file(file: UploadFile):
+    """Validate that the uploaded file is a .zip under 100MB."""
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise ApiException("Only .zip files are allowed", 400)
+    if file.content_type and file.content_type not in (
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/octet-stream",
+    ):
+        raise ApiException("Invalid file type. Only zip files accepted.", 400)
+    # Check file size
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > MAX_UPLOAD_SIZE:
+        raise ApiException("File too large. Maximum size is 100MB.", 400)
+
+
+# --- Public endpoints ---
 
 @router.get("", response_model=PaginatedResponse)
 async def get_all_jerseys(
@@ -106,7 +133,7 @@ async def get_jersey_by_id(id: int, db: AsyncSession = Depends(get_db)):
             "rating": jersey.rating,
             "reviewCount": jersey.review_count,
             "image": jersey.image,
-            "downloadUrl": jersey.download_url,
+            "hasDesignFile": bool(jersey.r2_file_key),
             "badge": jersey.badge,
             "badgeColor": jersey.badge_color,
             "categoryId": jersey.category_id,
@@ -114,26 +141,47 @@ async def get_jersey_by_id(id: int, db: AsyncSession = Depends(get_db)):
         }
     )
 
+
+# --- Admin endpoints (multipart form + optional file upload) ---
+
 @router.post("", response_model=ApiResponse, status_code=201)
 async def create_jersey(
-    request: CreateJerseyRequest,
+    name: str = Form(...),
+    player: str = Form(...),
+    price: Decimal = Form(...),
+    image: str = Form(...),
+    categoryId: str = Form(...),
+    originalPrice: Optional[Decimal] = Form(None),
+    badge: Optional[str] = Form(None),
+    badgeColor: Optional[str] = Form(None),
+    design_file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user)
+    admin=Depends(get_admin_user),
 ):
+    # Validate file if provided
+    if design_file and design_file.filename:
+        validate_design_file(design_file)
+
     jersey = Jersey(
-        name=request.name,
-        player=request.player,
-        price=request.price,
-        original_price=request.originalPrice,
-        image=request.image,
-        download_url=request.downloadUrl,
-        badge=request.badge,
-        badge_color=request.badgeColor,
-        category_id=request.categoryId
+        name=name,
+        player=player,
+        price=price,
+        original_price=originalPrice,
+        image=image,
+        badge=badge,
+        badge_color=badgeColor,
+        category_id=categoryId,
     )
     db.add(jersey)
+    await db.flush()  # get jersey.id for the R2 key
+
+    # Upload design file to R2 if provided
+    if design_file and design_file.filename:
+        file_key = f"designs/{jersey.id}/{design_file.filename}"
+        await upload_file_to_r2(design_file, file_key)
+        jersey.r2_file_key = file_key
+
     await db.commit()
-    await db.refresh(jersey)
     
     # Load category
     result = await db.execute(select(Jersey).options(selectinload(Jersey.category)).where(Jersey.id == jersey.id))
@@ -146,6 +194,7 @@ async def create_jersey(
             "name": jersey.name,
             "player": jersey.player,
             "price": float(jersey.price),
+            "hasDesignFile": bool(jersey.r2_file_key),
             "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
     )
@@ -153,29 +202,56 @@ async def create_jersey(
 @router.patch("/{id}", response_model=ApiResponse)
 async def update_jersey(
     id: int,
-    request: UpdateJerseyRequest,
+    name: Optional[str] = Form(None),
+    player: Optional[str] = Form(None),
+    price: Optional[Decimal] = Form(None),
+    originalPrice: Optional[Decimal] = Form(None),
+    image: Optional[str] = Form(None),
+    badge: Optional[str] = Form(None),
+    badgeColor: Optional[str] = Form(None),
+    categoryId: Optional[str] = Form(None),
+    design_file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user)
+    admin=Depends(get_admin_user),
 ):
     result = await db.execute(select(Jersey).where(Jersey.id == id))
     jersey = result.scalar_one_or_none()
     
     if not jersey:
         raise ApiException("Jersey not found", 404)
-        
-    update_data = request.model_dump(exclude_unset=True)
-    if "originalPrice" in update_data:
-        update_data["original_price"] = update_data.pop("originalPrice")
-    if "downloadUrl" in update_data:
-        update_data["download_url"] = update_data.pop("downloadUrl")
-    if "badgeColor" in update_data:
-        update_data["badge_color"] = update_data.pop("badgeColor")
-    if "categoryId" in update_data:
-        update_data["category_id"] = update_data.pop("categoryId")
-        
-    for key, value in update_data.items():
-        setattr(jersey, key, value)
-        
+
+    # Update fields if provided
+    if name is not None:
+        jersey.name = name
+    if player is not None:
+        jersey.player = player
+    if price is not None:
+        jersey.price = price
+    if originalPrice is not None:
+        jersey.original_price = originalPrice
+    if image is not None:
+        jersey.image = image
+    if badge is not None:
+        jersey.badge = badge
+    if badgeColor is not None:
+        jersey.badge_color = badgeColor
+    if categoryId is not None:
+        jersey.category_id = categoryId
+
+    # Handle design file upload/replacement
+    if design_file and design_file.filename:
+        validate_design_file(design_file)
+        # Delete old file from R2 if exists
+        if jersey.r2_file_key:
+            try:
+                delete_file_from_r2(jersey.r2_file_key)
+            except Exception:
+                pass  # Old file might not exist, continue
+        # Upload new file
+        file_key = f"designs/{jersey.id}/{design_file.filename}"
+        await upload_file_to_r2(design_file, file_key)
+        jersey.r2_file_key = file_key
+
     await db.commit()
     
     # Fetch fresh
@@ -189,6 +265,7 @@ async def update_jersey(
             "name": jersey.name,
             "player": jersey.player,
             "price": float(jersey.price),
+            "hasDesignFile": bool(jersey.r2_file_key),
             "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
     )
@@ -204,7 +281,14 @@ async def delete_jersey(
     
     if not jersey:
         raise ApiException("Jersey not found", 404)
-        
+
+    # Delete design file from R2 if exists
+    if jersey.r2_file_key:
+        try:
+            delete_file_from_r2(jersey.r2_file_key)
+        except Exception:
+            pass  # Non-critical, continue with DB deletion
+
     await db.delete(jersey)
     await db.commit()
     

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Plus, Shirt, RefreshCw } from "lucide-react"
+import { ArrowLeft, Plus, Shirt, RefreshCw, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
@@ -27,11 +27,11 @@ export default function AdminJerseysPage() {
         price: "",
         originalPrice: "",
         image: "",
-        downloadUrl: "",
         badge: "",
         badgeColor: "",
         categoryId: "",
     })
+    const [designFile, setDesignFile] = useState<File | null>(null)
 
     useEffect(() => {
         const stored = localStorage.getItem("adminUser")
@@ -59,7 +59,7 @@ export default function AdminJerseysPage() {
         e.preventDefault()
         if (!session) return
 
-        if (!formData.name || !formData.player || !formData.price || !formData.image || !formData.downloadUrl || !formData.categoryId) {
+        if (!formData.name || !formData.player || !formData.price || !formData.image || !formData.categoryId) {
             toast({ title: "Missing Fields", description: "Please fill in all required fields." })
             return
         }
@@ -72,17 +72,18 @@ export default function AdminJerseysPage() {
                 price: parseFloat(formData.price),
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
                 image: formData.image,
-                downloadUrl: formData.downloadUrl,
                 badge: formData.badge || undefined,
                 badgeColor: formData.badgeColor || undefined,
                 categoryId: formData.categoryId,
+                designFile: designFile || undefined,
             })
 
             setJerseys([newJersey, ...jerseys])
             setFormData({
                 name: "", player: "", price: "", originalPrice: "",
-                image: "", downloadUrl: "", badge: "", badgeColor: "", categoryId: "",
+                image: "", badge: "", badgeColor: "", categoryId: "",
             })
+            setDesignFile(null)
             setShowForm(false)
             toast({ title: "Success", description: "Jersey created successfully!" })
         } catch (error: any) {
@@ -168,13 +169,21 @@ export default function AdminJerseysPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-2">Download URL *</label>
-                                <Input
-                                    value={formData.downloadUrl}
-                                    onChange={(e) => setFormData({ ...formData, downloadUrl: e.target.value })}
-                                    placeholder="https://drive.google.com/..."
-                                    className="bg-background"
-                                />
+                                <label className="block text-sm font-medium text-foreground mb-2">Design File (.zip)</label>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        accept=".zip,application/zip,application/x-zip-compressed"
+                                        onChange={(e) => setDesignFile(e.target.files?.[0] || null)}
+                                        className="w-full h-10 px-3 py-2 rounded-md bg-background border border-border text-foreground text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                                    />
+                                    {designFile && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            <Upload className="inline h-3 w-3 mr-1" />
+                                            {designFile.name} ({(designFile.size / 1024 / 1024).toFixed(1)}MB)
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-2">Category *</label>
