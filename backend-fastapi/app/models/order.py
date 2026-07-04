@@ -18,8 +18,8 @@ class Order(Base):
     subtotal: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     tax: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2))
-    razorpay_order_id: Mapped[Optional[str]] = mapped_column("razorpayOrderId", String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())
+    razorpay_order_id: Mapped[Optional[str]] = mapped_column("razorpayOrderId", String, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now(), index=True)
     download_count: Mapped[int] = mapped_column("downloadCount", Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
 

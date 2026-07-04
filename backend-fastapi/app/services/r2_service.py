@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import BinaryIO
 
 import boto3
@@ -11,6 +12,17 @@ logger = logging.getLogger(__name__)
 
 # Lazy-initialized singleton client
 _client = None
+
+# Allowed image MIME types for preview images
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/svg+xml",
+    "image/avif",
+}
 
 
 def get_r2_client():
@@ -29,17 +41,18 @@ def get_r2_client():
 
 async def upload_file_to_r2(file: UploadFile, file_key: str) -> str:
     """
-    Upload a file directly from FastAPI UploadFile to R2.
+    Upload a file directly from FastAPI UploadFile to R2 in a non-blocking thread.
     
     Args:
-        file: The UploadFile from the request (no temp file needed).
+        file: The UploadFile from the request.
         file_key: The object key in R2, e.g. 'designs/42/jersey-design.zip'.
     
     Returns:
         The file_key that was uploaded.
     """
     client = get_r2_client()
-    client.upload_fileobj(
+    await asyncio.to_thread(
+        client.upload_fileobj,
         file.file,
         settings.R2_BUCKET_NAME,
         file_key,
@@ -49,9 +62,51 @@ async def upload_file_to_r2(file: UploadFile, file_key: str) -> str:
     return file_key
 
 
+async def upload_preview_image_to_r2(file: UploadFile, file_key: str) -> str:
+    """
+    Upload a preview image (JPG/PNG/WEBP/etc.) to R2 for public access in a non-blocking thread.
+
+    Args:
+        file: The UploadFile from the request.
+        file_key: The object key in R2, e.g. 'previews/42/jersey.jpg'.
+
+    Returns:
+        The public URL of the uploaded image.
+    """
+    content_type = file.content_type or "image/jpeg"
+    client = get_r2_client()
+    await asyncio.to_thread(
+        client.upload_fileobj,
+        file.file,
+        settings.R2_BUCKET_NAME,
+        file_key,
+        ExtraArgs={
+            "ContentType": content_type,
+            "CacheControl": "public, max-age=31536000",  # 1 year cache for public images
+        },
+    )
+    logger.info(f"Uploaded preview image {file_key} to R2 bucket {settings.R2_BUCKET_NAME}")
+    return get_public_preview_url(file_key)
+
+
+def get_public_preview_url(file_key: str) -> str:
+    """
+    Build the public URL for a preview image stored in R2.
+
+    Args:
+        file_key: The object key in R2, e.g. 'previews/42/jersey.jpg'.
+
+    Returns:
+        Full public URL string.
+    """
+    base = settings.R2_PUBLIC_BASE_URL.rstrip("/")
+    return f"{base}/{file_key}"
+
+
 def generate_presigned_url(file_key: str, expiry_seconds: int = 900) -> str:
     """
     Generate a presigned download URL for an R2 object.
+    (Cryptographic signature generated locally, no blocking network calls).
     
     Args:
         file_key: The object key in R2.
@@ -69,8 +124,15 @@ def generate_presigned_url(file_key: str, expiry_seconds: int = 900) -> str:
     return url
 
 
-def delete_file_from_r2(file_key: str) -> None:
-    """Delete an object from R2. Used when replacing a design file."""
+async def delete_file_from_r2(file_key: str) -> None:
+    """Delete an object from R2 in a non-blocking thread."""
     client = get_r2_client()
-    client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=file_key)
+    await asyncio.to_thread(client.delete_object, Bucket=settings.R2_BUCKET_NAME, Key=file_key)
     logger.info(f"Deleted {file_key} from R2 bucket {settings.R2_BUCKET_NAME}")
+
+
+async def delete_preview_image_from_r2(file_key: str) -> None:
+    """Delete a preview image object from R2 in a non-blocking thread."""
+    client = get_r2_client()
+    await asyncio.to_thread(client.delete_object, Bucket=settings.R2_BUCKET_NAME, Key=file_key)
+    logger.info(f"Deleted preview image {file_key} from R2 bucket {settings.R2_BUCKET_NAME}")

@@ -94,6 +94,11 @@ export default function CheckoutPage() {
                 })),
             })
 
+            // Store email in localStorage for guest validation on the order status page
+            if (typeof window !== "undefined") {
+                localStorage.setItem("last_checkout_email", formData.email)
+            }
+
             // Open Razorpay Checkout
             if (order.razorpayOrderId && order.razorpayKeyId) {
                 await openRazorpayCheckout({

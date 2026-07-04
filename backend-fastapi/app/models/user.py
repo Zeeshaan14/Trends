@@ -22,5 +22,4 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
 
     # Relations (use string annotations to avoid circular imports)
-    cart: Mapped[Optional["Cart"]] = relationship(back_populates="user")
     orders: Mapped[List["Order"]] = relationship(back_populates="user")

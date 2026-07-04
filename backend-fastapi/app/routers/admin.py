@@ -6,7 +6,7 @@ from typing import Optional
 import math
 
 from app.db import get_db
-from app.models.order import Order
+from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.user import User
 from app.models.jersey import Jersey
@@ -62,7 +62,16 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db), admin=Depends(
                 "totalRevenue": float(total_revenue),
                 "ordersByStatus": orders_by_status
             },
-            "recentOrders": [{"id": o.id, "status": o.status, "total": float(o.total)} for o in recent_orders],
+            "recentOrders": [
+                {
+                    "id": o.id, 
+                    "status": o.status, 
+                    "total": float(o.total),
+                    "createdAt": o.created_at.isoformat() if o.created_at else None,
+                    "user": {"companyName": o.user.company_name} if o.user else None
+                } 
+                for o in recent_orders
+            ],
             "recentPayments": [{"id": p.id, "amount": float(p.amount), "status": p.status} for p in recent_payments]
         }
     )
@@ -75,7 +84,11 @@ async def get_all_orders(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_admin_user)
 ):
-    query = select(Order).options(selectinload(Order.user), selectinload(Order.payment))
+    query = select(Order).options(
+        selectinload(Order.user), 
+        selectinload(Order.payment),
+        selectinload(Order.items).selectinload(OrderItem.jersey)
+    )
     if status:
         query = query.where(Order.status == status)
         
@@ -88,7 +101,40 @@ async def get_all_orders(
     
     return PaginatedResponse(
         success=True,
-        data=[{"id": o.id, "status": o.status, "total": float(o.total), "user": {"email": o.user.email}} for o in orders],
+        data=[
+            {
+                "id": o.id,
+                "status": o.status,
+                "subtotal": float(o.subtotal),
+                "tax": float(o.tax),
+                "total": float(o.total),
+                "createdAt": o.created_at.isoformat(),
+                "user": {
+                    "id": o.user.id,
+                    "companyName": o.user.company_name,
+                    "email": o.user.email,
+                    "phone": o.user.phone
+                },
+                "items": [
+                    {
+                        "id": item.id,
+                        "quantity": item.quantity,
+                        "price": float(item.price),
+                        "jersey": {
+                            "id": item.jersey.id,
+                            "name": item.jersey.name,
+                            "player": item.jersey.player,
+                            "image": item.jersey.image
+                        }
+                    } for item in o.items
+                ],
+                "payment": {
+                    "id": o.payment.id,
+                    "status": o.payment.status,
+                    "method": o.payment.method
+                } if o.payment else None
+            } for o in orders
+        ],
         pagination=PaginationMeta(page=page, limit=limit, total=total, totalPages=math.ceil(total/limit))
     )
 
@@ -140,20 +186,26 @@ async def get_all_users(
         pagination=PaginationMeta(page=page, limit=limit, total=total, totalPages=math.ceil(total/limit))
     )
 
-@router.get("/designs", response_model=ApiResponse)
+@router.get("/designs", response_model=PaginatedResponse)
 async def get_design_status(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_admin_user),
 ):
-    """List all jerseys with their R2 design file upload status."""
-    result = await db.execute(
-        select(Jersey)
-        .options(selectinload(Jersey.category))
-        .order_by(Jersey.created_at.desc())
-    )
-    jerseys = result.scalars().all()
+    """List jerseys with pagination and their R2 design file upload status."""
+    query = select(Jersey).options(selectinload(Jersey.category))
+    
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar() or 0
+    
+    # Paginate
+    skip = (page - 1) * limit
+    query = query.order_by(Jersey.created_at.desc()).offset(skip).limit(limit)
+    jerseys = (await db.execute(query)).scalars().all()
 
-    return ApiResponse(
+    return PaginatedResponse(
         success=True,
         data=[
             {
@@ -167,4 +219,10 @@ async def get_design_status(
             }
             for j in jerseys
         ],
+        pagination=PaginationMeta(
+            page=page,
+            limit=limit,
+            total=total,
+            totalPages=math.ceil(total / limit) if limit else 0
+        )
     )

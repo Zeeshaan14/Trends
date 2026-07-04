@@ -1,10 +1,5 @@
 from pydantic import BaseModel, EmailStr
 
-class RegisterUserRequest(BaseModel):
-    companyName: str
-    email: EmailStr
-    phone: str
-
 class AdminLoginRequest(BaseModel):
     email: EmailStr
     password: str

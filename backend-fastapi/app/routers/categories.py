@@ -11,11 +11,14 @@ from app.dependencies.auth import get_admin_user
 from app.exceptions import ApiException
 from sqlalchemy.orm import selectinload
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 @router.get("", response_model=ApiResponse)
 async def get_all_categories(db: AsyncSession = Depends(get_db)):
-    import traceback
     try:
         result = await db.execute(select(Category))
         categories = result.scalars().all()
@@ -39,7 +42,8 @@ async def get_all_categories(db: AsyncSession = Depends(get_db)):
             
         return ApiResponse(success=True, data=data)
     except Exception as e:
-        return ApiResponse(success=False, error=traceback.format_exc())
+        logger.exception("Error getting all categories")
+        return ApiResponse(success=False, error="Failed to retrieve categories. Internal server error.")
 
 @router.get("/{id}", response_model=ApiResponse)
 async def get_category_by_id(id: str, db: AsyncSession = Depends(get_db)):

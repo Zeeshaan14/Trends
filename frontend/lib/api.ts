@@ -107,11 +107,14 @@ export async function verifyPayment(data: import("./types").VerifyPaymentRequest
 export async function getDesignDownloadUrl(
     orderId: string,
     jerseyId: number,
-    token: string
+    email: string
 ): Promise<{ download_url: string; expires_in: number }> {
     const response = await fetchApi<ApiResponse<{ download_url: string; expires_in: number }>>(
         `/orders/${orderId}/download/${jerseyId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+            method: "POST",
+            body: JSON.stringify({ email }),
+        }
     )
     return response.data
 }
@@ -208,22 +211,24 @@ export async function createJerseyAdmin(token: string, data: {
     player: string
     price: number
     originalPrice?: number
-    image: string
+    image?: string
     badge?: string
     badgeColor?: string
     categoryId: string
     designFile?: File
+    previewImage?: File
 }): Promise<Jersey> {
     const formData = new FormData()
     formData.append("name", data.name)
     formData.append("player", data.player)
     formData.append("price", data.price.toString())
     if (data.originalPrice) formData.append("originalPrice", data.originalPrice.toString())
-    formData.append("image", data.image)
+    if (data.image) formData.append("image", data.image)
     if (data.badge) formData.append("badge", data.badge)
     if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
     formData.append("categoryId", data.categoryId)
     if (data.designFile) formData.append("design_file", data.designFile)
+    if (data.previewImage) formData.append("preview_image", data.previewImage)
 
     const url = `${API_BASE}/jerseys`
     const response = await fetch(url, {
@@ -246,6 +251,54 @@ export async function updateOrderStatus(token: string, orderId: string, status: 
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ status }),
+    })
+    return response.data
+}
+
+export async function updateJerseyAdmin(token: string, id: number, data: {
+    name?: string
+    player?: string
+    price?: number
+    originalPrice?: number
+    image?: string
+    badge?: string
+    badgeColor?: string
+    categoryId?: string
+    designFile?: File
+    previewImage?: File
+}): Promise<Jersey> {
+    const formData = new FormData()
+    if (data.name) formData.append("name", data.name)
+    if (data.player) formData.append("player", data.player)
+    if (data.price !== undefined) formData.append("price", data.price.toString())
+    if (data.originalPrice !== undefined) formData.append("originalPrice", data.originalPrice.toString())
+    if (data.image) formData.append("image", data.image)
+    if (data.badge !== undefined) formData.append("badge", data.badge || "")
+    if (data.badgeColor !== undefined) formData.append("badgeColor", data.badgeColor || "")
+    if (data.categoryId) formData.append("categoryId", data.categoryId)
+    if (data.designFile) formData.append("design_file", data.designFile)
+    if (data.previewImage) formData.append("preview_image", data.previewImage)
+
+    const url = `${API_BASE}/jerseys/${id}`
+    const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData,
+    })
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Request failed" }))
+        throw new ApiError(response.status, error.message || error.error || "Request failed")
+    }
+
+    const json = await response.json()
+    return json.data
+}
+
+export async function deleteJerseyAdmin(token: string, id: number): Promise<void> {
+    const response = await fetchApi<ApiResponse<any>>(`/jerseys/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
     })
     return response.data
 }

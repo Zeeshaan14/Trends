@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { CheckCircle, Download, ArrowRight, Package, AlertCircle, RefreshCw, Loader2 } from "lucide-react"
@@ -44,8 +44,10 @@ interface Order {
 
 export default function OrderConfirmationPage() {
     const params = useParams()
+    const searchParams = useSearchParams()
     const orderId = params.id as string
     const router = useRouter()
+    const emailFromUrl = searchParams ? searchParams.get("email") : null
     const { toast } = useToast()
     const [order, setOrder] = useState<Order | null>(null)
     const [loading, setLoading] = useState(true)
@@ -126,22 +128,26 @@ export default function OrderConfirmationPage() {
     }
 
     const handleDownload = async (jerseyId: number) => {
-        const stored = localStorage.getItem("adminUser")
-        if (!stored) {
+        if (!order?.user?.email) {
             toast({
-                title: "Authentication Required",
-                description: "Please log in to download your designs.",
+                title: "Error",
+                description: "Order details not loaded. Please refresh the page.",
                 variant: "destructive"
             })
             return
         }
 
-        const session = JSON.parse(stored)
         setDownloadingJerseyId(jerseyId)
 
         try {
-            const result = await getDesignDownloadUrl(orderId, jerseyId, session.accessToken)
-            window.open(result.download_url, "_blank")
+            const result = await getDesignDownloadUrl(orderId, jerseyId, order.user.email)
+            // Trigger download directly — no redirect, no new tab flicker
+            const link = document.createElement("a")
+            link.href = result.download_url
+            link.setAttribute("download", "")
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
         } catch (err: any) {
             toast({
                 title: "Download Failed",
@@ -154,14 +160,19 @@ export default function OrderConfirmationPage() {
     }
 
     useEffect(() => {
+        if (emailFromUrl && typeof window !== "undefined") {
+            localStorage.setItem("last_checkout_email", emailFromUrl)
+        }
+
         const fetchOrder = async () => {
             try {
                 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-                const response = await fetch(`${API_BASE}/orders/${orderId}`)
+                const lastEmail = (typeof window !== "undefined" ? localStorage.getItem("last_checkout_email") : "") || ""
+                const response = await fetch(`${API_BASE}/orders/${orderId}?email=${encodeURIComponent(lastEmail)}`)
                 const data = await response.json()
 
                 if (!response.ok) {
-                    throw new Error(data.message || "Failed to fetch order")
+                    throw new Error(data.message || data.error || "Failed to fetch order")
                 }
 
                 setOrder(data.data)
@@ -173,7 +184,7 @@ export default function OrderConfirmationPage() {
         }
 
         fetchOrder()
-    }, [orderId])
+    }, [orderId, emailFromUrl])
 
     if (loading) {
         return (
@@ -303,7 +314,7 @@ export default function OrderConfirmationPage() {
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">GST (18%)</span>
-                            <span className="text-foreground">₹{Number(order.tax).toFixed(2)}</span>
+                            <span className="text-foreground">₹{Number(order.tax ?? 0).toFixed(2)}</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex justify-between">

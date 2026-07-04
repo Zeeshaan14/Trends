@@ -99,11 +99,7 @@ export function JerseyCard({
             {/* Product Info */}
             <div className="mt-4 space-y-2">
                 <Link href={`/jerseys/${id}`} className="block group/link">
-                    <div className="flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-accent text-accent" />
-                        <span className="text-sm text-foreground font-medium">{rating}</span>
-                        <span className="text-sm text-muted-foreground">({reviews})</span>
-                    </div>
+
                     <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                         {name}
                     </h3>

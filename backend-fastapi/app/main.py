@@ -1,40 +1,82 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 from app.config import settings
 from app.db import engine
 from app.exceptions import ApiException, api_exception_handler, generic_exception_handler
 from app.security.headers import secure_headers
 from app.security.rate_limit import limiter
+from app.logging_config import setup_logging
 
 from app.routers import (
-    auth, categories, jerseys, cart, orders, payments, admin
+    auth, categories, jerseys, orders, payments, admin
 )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB connections etc if needed
+    # Configure structured logging
+    setup_logging()
+
+    # Validate critical environment variables in production
+    if settings.ENVIRONMENT == "production":
+        missing_vars = []
+        if not settings.SECRET_KEY or settings.SECRET_KEY == "your-super-secret-key-change-this-in-production":
+            missing_vars.append("SECRET_KEY")
+        if not settings.DATABASE_URL:
+            missing_vars.append("DATABASE_URL")
+        if not settings.RAZORPAY_KEY_ID:
+            missing_vars.append("RAZORPAY_KEY_ID")
+        if not settings.RAZORPAY_KEY_SECRET:
+            missing_vars.append("RAZORPAY_KEY_SECRET")
+        if not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY or not settings.R2_ENDPOINT:
+            missing_vars.append("R2 Credentials/Endpoint")
+        
+        if missing_vars:
+            raise RuntimeError(
+                f"Startup failed. Missing critical environment variables for production: {', '.join(missing_vars)}"
+            )
     yield
     # Cleanup
     await engine.dispose()
 
+is_prod = settings.ENVIRONMENT == "production"
 app = FastAPI(
     title="Trends API",
     description="FastAPI rewrite of the Express.js backend",
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs"
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None if is_prod else "/redoc",
+    openapi_url=None if is_prod else "/openapi.json"
 )
 
-from starlette.middleware.base import BaseHTTPMiddleware
+class SecurityHeadersMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        secure_headers.set_headers(response)
-        return response
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                from fastapi import Response
+                res = Response()
+                secure_headers.set_headers(res)
+                headers = list(message.get("headers", []))
+                for k, v in res.headers.items():
+                    if k.lower() != "content-length":
+                        headers.append((k.lower().encode("utf-8"), v.encode("utf-8")))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -48,25 +90,42 @@ origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if orig
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    # Allow any localhost port in dev for hot-reload convenience; disabled in production
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:[0-9]+)?$" if not is_prod else None,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # Exception Handlers
 app.add_exception_handler(ApiException, api_exception_handler)
-# app.add_exception_handler(Exception, generic_exception_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+if is_prod:
+    app.add_exception_handler(Exception, generic_exception_handler)
 
 # Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
 app.include_router(jerseys.router, prefix="/api/jerseys", tags=["Jerseys"])
-app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db import get_db
+
 @app.get("/api/health")
 @app.get("/")
-async def health_check():
-    return {"message": "Server is healthy 🚀"}
+@limiter.exempt
+async def health_check(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected", "message": "Server is healthy 🚀"}
+    except Exception:
+        import logging
+        logging.getLogger("app.main").exception("Health check database connection failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": "Database query failed"}
+        )

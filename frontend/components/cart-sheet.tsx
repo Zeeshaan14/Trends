@@ -156,14 +156,14 @@ export function CartSheet() {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">GST (18%)</span>
                                     <span className="text-foreground font-medium">
-                                        ₹{(totalPrice * 0.18).toFixed(2)}
+                                        ₹{(totalPrice * 0).toFixed(2)}
                                     </span>
                                 </div>
                                 <Separator className="my-2" />
                                 <div className="flex justify-between">
                                     <span className="font-bold text-lg">Total</span>
                                     <span className="font-bold text-lg text-primary">
-                                        ₹{(totalPrice * 1.18).toFixed(2)}
+                                        ₹{totalPrice.toFixed(2)}
                                     </span>
                                 </div>
                             </div>

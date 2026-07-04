@@ -5,6 +5,11 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from typing import Optional
 import math
+import re
+
+def escape_like(s: str) -> str:
+    """Escape SQL LIKE special characters."""
+    return re.sub(r"([%_\\])", r"\\\1", s)
 
 from app.db import get_db
 from app.models.jersey import Jersey
@@ -12,13 +17,22 @@ from app.schemas.jersey import JerseyFilterParams
 from app.schemas.common import PaginatedResponse, ApiResponse, PaginationMeta
 from app.dependencies.auth import get_admin_user
 from app.exceptions import ApiException
-from app.services.r2_service import upload_file_to_r2, delete_file_from_r2
+from app.config import settings
+from app.services.r2_service import (
+    upload_file_to_r2,
+    delete_file_from_r2,
+    upload_preview_image_to_r2,
+    delete_preview_image_from_r2,
+    ALLOWED_IMAGE_TYPES,
+    get_public_preview_url,
+)
 
 router = APIRouter()
 
 # --- File validation ---
 
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_PREVIEW_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 def validate_design_file(file: UploadFile):
@@ -37,6 +51,21 @@ def validate_design_file(file: UploadFile):
     file.file.seek(0)
     if size > MAX_UPLOAD_SIZE:
         raise ApiException("File too large. Maximum size is 100MB.", 400)
+
+
+def validate_preview_image(file: UploadFile):
+    """Validate that the uploaded file is an image under 10MB."""
+    if file.content_type and file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise ApiException(
+            f"Invalid image type '{file.content_type}'. Accepted: JPEG, PNG, WEBP, GIF, SVG, AVIF.",
+            400,
+        )
+    # Check file size
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > MAX_PREVIEW_IMAGE_SIZE:
+        raise ApiException("Preview image too large. Maximum size is 10MB.", 400)
 
 
 # --- Public endpoints ---
@@ -63,10 +92,11 @@ async def get_all_jerseys(
         query = query.where(Jersey.price <= maxPrice)
         
     if search:
+        safe_search = escape_like(search[:100])
         query = query.where(
             or_(
-                Jersey.name.ilike(f"%{search}%"),
-                Jersey.player.ilike(f"%{search}%")
+                Jersey.name.ilike(f"%{safe_search}%"),
+                Jersey.player.ilike(f"%{safe_search}%")
             )
         )
         
@@ -149,31 +179,43 @@ async def create_jersey(
     name: str = Form(...),
     player: str = Form(...),
     price: Decimal = Form(...),
-    image: str = Form(...),
+    image: Optional[str] = Form(None),
     categoryId: str = Form(...),
     originalPrice: Optional[Decimal] = Form(None),
     badge: Optional[str] = Form(None),
     badgeColor: Optional[str] = Form(None),
     design_file: Optional[UploadFile] = File(None),
+    preview_image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_admin_user),
 ):
-    # Validate file if provided
+    # Validate files if provided
     if design_file and design_file.filename:
         validate_design_file(design_file)
+    if preview_image and preview_image.filename:
+        validate_preview_image(preview_image)
+
+    # Resolve the display image — file upload takes priority over URL string
+    display_image = image or ""
 
     jersey = Jersey(
         name=name,
         player=player,
         price=price,
         original_price=originalPrice,
-        image=image,
+        image=display_image,
         badge=badge,
         badge_color=badgeColor,
         category_id=categoryId,
     )
     db.add(jersey)
     await db.flush()  # get jersey.id for the R2 key
+
+    # Upload preview image to R2 if provided — overwrites the image URL
+    if preview_image and preview_image.filename:
+        preview_key = f"previews/{jersey.id}/{preview_image.filename}"
+        public_url = await upload_preview_image_to_r2(preview_image, preview_key)
+        jersey.image = public_url
 
     # Upload design file to R2 if provided
     if design_file and design_file.filename:
@@ -194,6 +236,7 @@ async def create_jersey(
             "name": jersey.name,
             "player": jersey.player,
             "price": float(jersey.price),
+            "image": jersey.image,
             "hasDesignFile": bool(jersey.r2_file_key),
             "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
@@ -211,6 +254,7 @@ async def update_jersey(
     badgeColor: Optional[str] = Form(None),
     categoryId: Optional[str] = Form(None),
     design_file: Optional[UploadFile] = File(None),
+    preview_image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_admin_user),
 ):
@@ -220,7 +264,7 @@ async def update_jersey(
     if not jersey:
         raise ApiException("Jersey not found", 404)
 
-    # Update fields if provided
+    # Update scalar fields if provided
     if name is not None:
         jersey.name = name
     if player is not None:
@@ -238,13 +282,32 @@ async def update_jersey(
     if categoryId is not None:
         jersey.category_id = categoryId
 
+    # Handle preview image upload/replacement
+    if preview_image and preview_image.filename:
+        validate_preview_image(preview_image)
+        # Delete old preview image from R2 if it was previously uploaded there
+        # We detect R2 preview images by checking if the current image URL starts with our public base URL
+        # and has a 'previews/' path segment
+        old_image = jersey.image or ""
+        public_base = (settings.R2_PUBLIC_BASE_URL or "").rstrip("/")
+        if public_base and old_image.startswith(public_base) and "/previews/" in old_image:
+            old_key = old_image.replace(public_base + "/", "", 1)
+            try:
+                await delete_preview_image_from_r2(old_key)
+            except Exception:
+                pass  # Non-critical, continue
+        # Upload new preview image
+        preview_key = f"previews/{jersey.id}/{preview_image.filename}"
+        public_url = await upload_preview_image_to_r2(preview_image, preview_key)
+        jersey.image = public_url
+
     # Handle design file upload/replacement
     if design_file and design_file.filename:
         validate_design_file(design_file)
         # Delete old file from R2 if exists
         if jersey.r2_file_key:
             try:
-                delete_file_from_r2(jersey.r2_file_key)
+                await delete_file_from_r2(jersey.r2_file_key)
             except Exception:
                 pass  # Old file might not exist, continue
         # Upload new file
@@ -265,6 +328,7 @@ async def update_jersey(
             "name": jersey.name,
             "player": jersey.player,
             "price": float(jersey.price),
+            "image": jersey.image,
             "hasDesignFile": bool(jersey.r2_file_key),
             "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
@@ -282,10 +346,20 @@ async def delete_jersey(
     if not jersey:
         raise ApiException("Jersey not found", 404)
 
-    # Delete design file from R2 if exists
+    # Delete private design file (zip) from R2 if exists
     if jersey.r2_file_key:
         try:
-            delete_file_from_r2(jersey.r2_file_key)
+            await delete_file_from_r2(jersey.r2_file_key)
+        except Exception:
+            pass  # Non-critical, continue with DB deletion
+
+    # Delete public preview image from R2 if it was uploaded there
+    old_image = jersey.image or ""
+    public_base = (settings.R2_PUBLIC_BASE_URL or "").rstrip("/")
+    if public_base and old_image.startswith(public_base) and "/previews/" in old_image:
+        old_preview_key = old_image.replace(public_base + "/", "", 1)
+        try:
+            await delete_preview_image_from_r2(old_preview_key)
         except Exception:
             pass  # Non-critical, continue with DB deletion
 
@@ -296,3 +370,4 @@ async def delete_jersey(
         success=True,
         message="Jersey deleted"
     )
+

@@ -14,13 +14,16 @@ from app.schemas.payment import VerifyPaymentRequest
 from app.schemas.common import ApiResponse
 from app.exceptions import ApiException
 from app.services.razorpay_service import verify_payment_signature, verify_webhook_signature
+from app.dependencies.auth import get_admin_user
+from app.security.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 @router.post("/verify", response_model=ApiResponse, status_code=201)
-async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def verify_payment(body: VerifyPaymentRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Verify Razorpay payment signature and mark order as paid.
     Called by the frontend after Razorpay checkout success callback.
@@ -29,7 +32,7 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
     result = await db.execute(
         select(Order)
         .options(selectinload(Order.payment), selectinload(Order.items).selectinload(OrderItem.jersey))
-        .where(Order.id == request.orderId)
+        .where(Order.id == body.orderId)
     )
     order = result.scalar_one_or_none()
     
@@ -41,9 +44,9 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
     
     # Verify the Razorpay signature
     is_valid = verify_payment_signature(
-        razorpay_order_id=request.razorpayOrderId,
-        razorpay_payment_id=request.razorpayPaymentId,
-        razorpay_signature=request.razorpaySignature,
+        razorpay_order_id=body.razorpayOrderId,
+        razorpay_payment_id=body.razorpayPaymentId,
+        razorpay_signature=body.razorpaySignature,
     )
     
     if not is_valid:
@@ -51,9 +54,9 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
         failed_payment = Payment(
             order_id=order.id,
             method="razorpay",
-            transaction_id=request.razorpayPaymentId,
-            razorpay_payment_id=request.razorpayPaymentId,
-            razorpay_signature=request.razorpaySignature,
+            transaction_id=body.razorpayPaymentId,
+            razorpay_payment_id=body.razorpayPaymentId,
+            razorpay_signature=body.razorpaySignature,
             amount=order.total,
             status=PaymentStatus.FAILED,
         )
@@ -65,9 +68,9 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
     payment = Payment(
         order_id=order.id,
         method="razorpay",
-        transaction_id=request.razorpayPaymentId,
-        razorpay_payment_id=request.razorpayPaymentId,
-        razorpay_signature=request.razorpaySignature,
+        transaction_id=body.razorpayPaymentId,
+        razorpay_payment_id=body.razorpayPaymentId,
+        razorpay_signature=body.razorpaySignature,
         amount=order.total,
         status=PaymentStatus.COMPLETED,
     )
@@ -101,6 +104,7 @@ async def verify_payment(request: VerifyPaymentRequest, db: AsyncSession = Depen
 
 
 @router.post("/webhook")
+@limiter.exempt
 async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Razorpay webhook handler — safety net for payment confirmation.
@@ -178,7 +182,7 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/{id}", response_model=ApiResponse)
-async def get_payment_by_id(id: str, db: AsyncSession = Depends(get_db)):
+async def get_payment_by_id(id: str, db: AsyncSession = Depends(get_db), admin=Depends(get_admin_user)):
     result = await db.execute(
         select(Payment)
         .options(
