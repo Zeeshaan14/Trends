@@ -76,7 +76,7 @@ export function loadRazorpayScript(): Promise<boolean> {
 export async function openRazorpayCheckout(
     options: RazorpayOptions,
     onPaymentFailed?: (error: RazorpayError) => void
-): Promise<void> {
+): Promise<{ close: () => void }> {
     const isLoaded = await loadRazorpayScript()
     if (!isLoaded) {
         throw new Error("Razorpay SDK failed to load. Are you online?")
@@ -94,4 +94,7 @@ export async function openRazorpayCheckout(
     })
 
     rzp.open()
+
+    // Return the instance so callers can programmatically close the modal
+    return { close: () => rzp.close() }
 }

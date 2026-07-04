@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -56,6 +56,9 @@ export default function OrderConfirmationPage() {
     const [error, setError] = useState<string | null>(null)
     const [isRetrying, setIsRetrying] = useState(false)
     const [downloadingJerseyId, setDownloadingJerseyId] = useState<number | null>(null)
+    const [isPolling, setIsPolling] = useState(false)
+    const pollAttemptsRef = useRef(0)
+    const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const handleRetryPayment = async () => {
         if (!order || !order.razorpayOrderId || !order.razorpayKeyId) {
@@ -163,7 +166,16 @@ export default function OrderConfirmationPage() {
         }
     }
 
-    const fetchOrder = async () => {
+    const stopPolling = useCallback(() => {
+        if (pollTimerRef.current) {
+            clearTimeout(pollTimerRef.current)
+            pollTimerRef.current = null
+        }
+        setIsPolling(false)
+        pollAttemptsRef.current = 0
+    }, [])
+
+    const fetchOrder = useCallback(async (isPollingCall = false): Promise<Order | null> => {
         try {
             const lastEmail = (typeof window !== "undefined" ? localStorage.getItem("last_checkout_email") : "") || ""
             if (!lastEmail) {
@@ -171,12 +183,63 @@ export default function OrderConfirmationPage() {
             }
             const data = await getOrderById(orderId, lastEmail)
             setOrder(data)
+            return data
         } catch (err: any) {
-            setError(err.message)
+            if (!isPollingCall) {
+                setError(err.message)
+            }
+            return null
         } finally {
-            setLoading(false)
+            if (!isPollingCall) {
+                setLoading(false)
+            }
         }
-    }
+    }, [orderId])
+
+    const startPolling = useCallback(() => {
+        const MAX_ATTEMPTS = 30 // 30 × 4s = 2 minutes
+        const POLL_INTERVAL_MS = 4000
+
+        setIsPolling(true)
+        pollAttemptsRef.current = 0
+
+        const poll = async () => {
+            pollAttemptsRef.current += 1
+
+            const data = await fetchOrder(true)
+
+            if (data && data.status === "PAID") {
+                // Payment confirmed — stop polling and update UI
+                stopPolling()
+                setLoading(false)
+                toast({
+                    title: "Payment Confirmed! 🎉",
+                    description: "Your payment was successful. Download links are ready.",
+                })
+                return
+            }
+
+            if (pollAttemptsRef.current >= MAX_ATTEMPTS) {
+                // Timed out — stop polling, show pending state
+                stopPolling()
+                setLoading(false)
+                return
+            }
+
+            // Schedule next poll
+            pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
+        }
+
+        // Start first poll after a short initial delay
+        pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
+    }, [fetchOrder, stopPolling, toast])
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+        }
+    }, [])
 
     useEffect(() => {
         // If email is in URL, store it and strip it from the URL
@@ -189,10 +252,21 @@ export default function OrderConfirmationPage() {
             return // Stop execution here; the router replacement triggers state update
         }
 
-        fetchOrder()
+        const init = async () => {
+            const data = await fetchOrder()
+            // If the order is PENDING after initial fetch, start polling for webhook confirmation
+            // This handles async payments like QR/GPay where payment confirms out-of-band
+            if (data && data.status === "PENDING") {
+                startPolling()
+            } else {
+                setLoading(false)
+            }
+        }
+
+        init()
     }, [orderId, emailFromUrl, router])
 
-    if (loading) {
+    if (loading && !isPolling) {
         return (
             <div className="min-h-screen bg-background pt-32 pb-16 px-4">
                 <div className="max-w-3xl mx-auto text-center">
@@ -201,6 +275,31 @@ export default function OrderConfirmationPage() {
                         <div className="h-8 bg-secondary/50 rounded w-1/2 mx-auto" />
                         <div className="h-4 bg-secondary/50 rounded w-1/3 mx-auto" />
                     </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Show polling state: payment was initiated externally (QR/GPay) and we are waiting for webhook
+    if (isPolling && (!order || order.status === "PENDING")) {
+        return (
+            <div className="min-h-screen bg-background pt-32 pb-16 px-4">
+                <div className="max-w-3xl mx-auto text-center">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/20 mb-6">
+                        <Loader2 className="h-10 w-10 text-yellow-500 animate-spin" />
+                    </div>
+                    <h1 className="font-[var(--font-oswald)] text-4xl sm:text-5xl font-bold text-foreground mb-4">
+                        CONFIRMING PAYMENT
+                    </h1>
+                    <p className="text-muted-foreground text-lg mb-2">
+                        We&apos;re waiting for payment confirmation from your bank.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                        This can take up to 2 minutes for UPI/QR payments. Please keep this page open.
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-4">
+                        Checking status... (attempt {pollAttemptsRef.current}/30)
+                    </p>
                 </div>
             </div>
         )

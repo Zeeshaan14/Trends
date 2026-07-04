@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -11,7 +11,7 @@ import { useCart } from "@/context/cart-context"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
-import { createOrder, verifyPayment } from "@/lib/api"
+import { createOrder, verifyPayment, getOrderById } from "@/lib/api"
 import { openRazorpayCheckout } from "@/lib/razorpay"
 import { checkoutSchema } from "@/lib/validators"
 
@@ -20,6 +20,15 @@ export default function CheckoutPage() {
     const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart()
     const [isProcessing, setIsProcessing] = useState(false)
     const [agreedToTerms, setAgreedToTerms] = useState(false)
+    const razorpayRef = useRef<{ close: () => void } | null>(null)
+    const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Cleanup any running poll on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+        }
+    }, [])
     const { toast } = useToast()
 
     // Tax is currently 0 on the backend — will be enabled later
@@ -51,6 +60,44 @@ export default function CheckoutPage() {
                 return copy
             })
         }
+    }
+
+    /**
+     * Polls our backend every 3 seconds while Razorpay modal is open.
+     * This is the reliable path for QR/GPay payments where Razorpay's
+     * handler callback may not fire (payment confirmed out-of-band via webhook).
+     */
+    const startOrderPolling = (orderId: string, email: string) => {
+        const MAX_ATTEMPTS = 40 // 40 × 3s = 2 minutes
+        let attempts = 0
+
+        const poll = async () => {
+            attempts += 1
+            try {
+                const data = await getOrderById(orderId, email)
+                if (data && data.status === "PAID") {
+                    // Backend confirmed payment — close Razorpay modal and navigate
+                    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+                    razorpayRef.current?.close()
+                    clearCart()
+                    toast({
+                        title: "Payment Confirmed! 🎉",
+                        description: "Your order is confirmed. Redirecting...",
+                    })
+                    window.location.href = `/order/${orderId}`
+                    return
+                }
+            } catch {
+                // Silently ignore poll errors — keep polling
+            }
+
+            if (attempts < MAX_ATTEMPTS) {
+                pollTimerRef.current = setTimeout(poll, 3000)
+            }
+        }
+
+        // First poll after 5 seconds (give webhook time to arrive)
+        pollTimerRef.current = setTimeout(poll, 5000)
     }
 
     const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -104,9 +151,9 @@ export default function CheckoutPage() {
 
             // Open Razorpay Checkout
             if (order.razorpayOrderId && order.razorpayKeyId) {
-                await openRazorpayCheckout({
+                const rzp = await openRazorpayCheckout({
                     key: order.razorpayKeyId,
-                    amount: Math.round(order.total * 100), // Use server-authoritative total (in paise)
+                    amount: Math.round(order.total * 100),
                     currency: "INR",
                     name: "NuJerseys",
                     description: "Digital Design Purchase",
@@ -117,19 +164,23 @@ export default function CheckoutPage() {
                         contact: formData.phone,
                     },
                     theme: {
-                        color: "#0f172a", // Match your primary color
+                        color: "#0f172a",
                     },
+                    /**
+                     * handler: fast path for card / UPI-inline / netbanking.
+                     * For QR/GPay the polling below is the reliable path.
+                     */
                     handler: async function (response) {
+                        // Stop polling — handler fired, so we have the payment IDs
+                        if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
                         try {
-                            setIsProcessing(true) // Re-enable processing state for verification
+                            setIsProcessing(true)
                             await verifyPayment({
                                 orderId: order.id,
                                 razorpayOrderId: response.razorpay_order_id,
                                 razorpayPaymentId: response.razorpay_payment_id,
                                 razorpaySignature: response.razorpay_signature,
                             })
-
-                            // Clear cart and show success
                             clearCart()
                             toast({
                                 title: "Payment Successful!",
@@ -143,24 +194,29 @@ export default function CheckoutPage() {
                                 description: verifyError.message || "Payment verification failed. Please contact support.",
                                 variant: "destructive"
                             })
-                            // Redirect to order page to show pending status
                             window.location.href = `/order/${order.id}`
                         }
                     },
                     modal: {
                         ondismiss: function () {
+                            // User manually closed the modal — stop polling
+                            if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
                             setIsProcessing(false)
                             toast({
                                 title: "Payment Cancelled",
                                 description: "You can retry payment from the order page.",
                             })
-                            // Do NOT clear cart — user may want to retry or continue shopping
                             window.location.href = `/order/${order.id}`
                         }
                     }
                 })
+
+                // Store rzp instance and start polling as the reliable path for QR/GPay
+                razorpayRef.current = rzp
+                startOrderPolling(order.id, formData.email)
+
             } else {
-                 throw new Error("Razorpay integration details missing from server.")
+                throw new Error("Razorpay integration details missing from server.")
             }
 
         } catch (error: any) {
