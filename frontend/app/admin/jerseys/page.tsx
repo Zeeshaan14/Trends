@@ -29,7 +29,7 @@ const MAX_PREVIEW_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
 export default function AdminJerseysPage() {
     const router = useRouter()
     const { toast } = useToast()
-    const { admin } = useAdminSession(true)
+    const { admin, token } = useAdminSession(true)
     const [jerseys, setJerseys] = useState<Jersey[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
@@ -51,7 +51,7 @@ export default function AdminJerseysPage() {
     const [previewImage, setPreviewImage] = useState<File | null>(null)
 
     useEffect(() => {
-        if (!admin) return
+        if (!admin || !token) return
 
         Promise.all([
             getJerseys({ limit: 100 }),
@@ -60,10 +60,13 @@ export default function AdminJerseysPage() {
             .then(([jerseysRes, categoriesRes]) => {
                 setJerseys(jerseysRes.data)
                 setCategories(categoriesRes)
+                setLoading(false)
             })
-            .catch(console.error)
-            .finally(() => setLoading(false))
-    }, [admin])
+            .catch((err) => {
+                toast({ title: "Error", description: "Failed to load data", variant: "destructive" })
+                setLoading(false)
+            })
+    }, [admin, token, toast])
 
     const handleDesignFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null
@@ -95,19 +98,19 @@ export default function AdminJerseysPage() {
         setPreviewImage(file)
     }
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value })
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!admin) return
-
-        if (!formData.name || !formData.player || !formData.price || !formData.categoryId || (!formData.image && !previewImage)) {
-            toast({ title: "Missing Fields", description: "Please fill in all required fields. You must provide an Image URL or upload a Preview Image." })
-            return
-        }
-
         setSubmitting(true)
+
+        if (!token) return
+
         try {
             if (editingId) {
-                const updatedJersey = await updateJerseyAdmin(undefined, editingId, {
+                const updatedJersey = await updateJerseyAdmin(token, editingId, {
                     name: formData.name,
                     player: formData.player,
                     price: parseFloat(formData.price),
@@ -122,7 +125,7 @@ export default function AdminJerseysPage() {
                 setJerseys(jerseys.map(j => j.id === editingId ? updatedJersey : j))
                 toast({ title: "Success", description: "Jersey updated successfully!" })
             } else {
-                const newJersey = await createJerseyAdmin(undefined, {
+                const newJersey = await createJerseyAdmin(token, {
                     name: formData.name,
                     player: formData.player,
                     price: parseFloat(formData.price),
@@ -170,10 +173,10 @@ export default function AdminJerseysPage() {
     }
 
     const handleDelete = async (id: number) => {
-        if (!admin) return
+        if (!admin || !token) return
 
         try {
-            await deleteJerseyAdmin(undefined, id)
+            await deleteJerseyAdmin(token, id)
             setJerseys(jerseys.filter((j) => j.id !== id))
             toast({ title: "Success", description: "Jersey deleted successfully" })
         } catch (error: any) {

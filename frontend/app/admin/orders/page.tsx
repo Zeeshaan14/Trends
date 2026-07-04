@@ -10,20 +10,20 @@ import { getAdminOrders, AdminOrder } from "@/lib/api"
 import { useAdminSession } from "@/hooks/use-admin-session"
 
 export default function AdminOrdersPage() {
-    const { admin } = useAdminSession(true)
+    const { admin, token } = useAdminSession(true)
     const [orders, setOrders] = useState<AdminOrder[]>([])
     const [loading, setLoading] = useState(true)
     const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!admin) return
+        if (!admin || !token) return
 
         setLoading(true)
-        getAdminOrders(undefined, statusFilter || undefined)
+        getAdminOrders(token, statusFilter || undefined)
             .then((res) => setOrders(res.data))
             .catch(console.error)
             .finally(() => setLoading(false))
-    }, [admin, statusFilter])
+    }, [admin, token, statusFilter])
 
     const statusColors: Record<string, string> = {
         PENDING: "bg-yellow-500/20 text-yellow-500",

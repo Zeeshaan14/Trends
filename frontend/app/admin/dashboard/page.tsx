@@ -19,15 +19,15 @@ import { useAdminSession } from "@/hooks/use-admin-session"
 import { Button } from "@/components/ui/button"
 
 export default function AdminDashboardPage() {
-    const { admin, logout } = useAdminSession(true)
+    const { admin, token, logout } = useAdminSession(true)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (!admin) return
+        if (!admin || !token) return
 
         // Fetch dashboard stats
-        getDashboardStats()
+        getDashboardStats(token)
             .then(setStats)
             .catch((err) => {
                 console.error("Failed to fetch stats:", err)

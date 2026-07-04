@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { adminLogin } from "@/lib/api"
-import { setStoredAdminUser } from "@/lib/auth/admin-session"
+import { setStoredAdminUser, setStoredAdminToken } from "@/lib/auth/admin-session"
+import { setAuthCookies } from "@/app/actions"
 
 export default function AdminLoginPage() {
     const router = useRouter()
@@ -55,8 +56,12 @@ export default function AdminLoginPage() {
         try {
             const session = await adminLogin(formData.email, formData.password)
 
+            // Set cookies directly on the Next.js frontend domain
+            await setAuthCookies(session.accessToken, session.refreshToken)
+
             // Store ONLY non-sensitive user profile in local storage
             setStoredAdminUser(session.user)
+            setStoredAdminToken(session.accessToken)
             setFailedAttempts(0)
 
             toast({
