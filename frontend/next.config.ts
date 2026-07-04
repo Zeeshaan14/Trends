@@ -48,7 +48,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://pub-9b3b5053873140c08ab3e33331892a3a.r2.dev https://ik.imagekit.io",
-              "connect-src 'self' http://localhost:* http://127.0.0.1:* https://checkout.razorpay.com https://lumberjack.razorpay.com https://*.vercel-insights.com",
+              "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.nujerseys.com https://checkout.razorpay.com https://lumberjack.razorpay.com https://*.vercel-insights.com",
               "frame-src https://api.razorpay.com https://checkout.razorpay.com",
               "object-src 'none'",
               "base-uri 'self'",
