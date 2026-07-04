@@ -44,12 +44,14 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://va.vercel-scripts.com",
+              // cdn.razorpay.com required for Razorpay risk-detection bundle — without this the payment handler won't fire
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://cdn.razorpay.com https://pub-9b3b5053873140c08ab3e33331892a3a.r2.dev https://ik.imagekit.io",
-              "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.nujerseys.com https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com wss://*.razorpay.com https://*.vercel-insights.com",
-              "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+              "img-src 'self' data: blob: https://cdn.razorpay.com https://checkout.razorpay.com https://pub-9b3b5053873140c08ab3e33331892a3a.r2.dev https://ik.imagekit.io",
+              // All Razorpay + analytics endpoints needed for the full checkout + payment confirmation flow
+              "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.nujerseys.com https://api.razorpay.com https://checkout.razorpay.com https://cdn.razorpay.com https://lumberjack.razorpay.com https://lumberjack-metrics.razorpay.com wss://*.razorpay.com https://*.vercel-insights.com",
+              "frame-src https://api.razorpay.com https://checkout.razorpay.com https://cdn.razorpay.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

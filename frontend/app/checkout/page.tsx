@@ -22,6 +22,7 @@ export default function CheckoutPage() {
     const [agreedToTerms, setAgreedToTerms] = useState(false)
     const razorpayRef = useRef<{ close: () => void } | null>(null)
     const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const paymentConfirmedRef = useRef(false) // prevents ondismiss from firing "Cancelled" after we close modal
 
     // Cleanup any running poll on unmount
     useEffect(() => {
@@ -73,11 +74,14 @@ export default function CheckoutPage() {
 
         const poll = async () => {
             attempts += 1
+            console.log(`[Poll] Attempt ${attempts} — checking order ${orderId}`)
             try {
                 const data = await getOrderById(orderId, email)
+                console.log(`[Poll] Order status: ${data?.status}`)
                 if (data && data.status === "PAID") {
-                    // Backend confirmed payment — close Razorpay modal and navigate
+                    console.log("[Poll] Payment confirmed! Closing modal and redirecting.")
                     if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+                    paymentConfirmedRef.current = true // prevent ondismiss cancel toast
                     razorpayRef.current?.close()
                     clearCart()
                     toast({
@@ -87,16 +91,19 @@ export default function CheckoutPage() {
                     window.location.href = `/order/${orderId}`
                     return
                 }
-            } catch {
-                // Silently ignore poll errors — keep polling
+            } catch (err) {
+                console.warn("[Poll] Error checking order status:", err)
             }
 
             if (attempts < MAX_ATTEMPTS) {
                 pollTimerRef.current = setTimeout(poll, 3000)
+            } else {
+                console.warn("[Poll] Max attempts reached. Stopping poll.")
             }
         }
 
         // First poll after 5 seconds (give webhook time to arrive)
+        console.log(`[Poll] Starting polling for order ${orderId} in 5s`)
         pollTimerRef.current = setTimeout(poll, 5000)
     }
 
@@ -173,6 +180,7 @@ export default function CheckoutPage() {
                     handler: async function (response) {
                         // Stop polling — handler fired, so we have the payment IDs
                         if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+                        console.log("[Razorpay] handler fired, verifying payment...")
                         try {
                             setIsProcessing(true)
                             await verifyPayment({
@@ -181,6 +189,8 @@ export default function CheckoutPage() {
                                 razorpayPaymentId: response.razorpay_payment_id,
                                 razorpaySignature: response.razorpay_signature,
                             })
+                            console.log("[Razorpay] verifyPayment succeeded, redirecting")
+                            paymentConfirmedRef.current = true
                             clearCart()
                             toast({
                                 title: "Payment Successful!",
@@ -199,8 +209,11 @@ export default function CheckoutPage() {
                     },
                     modal: {
                         ondismiss: function () {
+                            // If payment was already confirmed (by handler or polling), skip cancel logic
+                            if (paymentConfirmedRef.current) return
                             // User manually closed the modal — stop polling
                             if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+                            console.log("[Razorpay] modal dismissed by user")
                             setIsProcessing(false)
                             toast({
                                 title: "Payment Cancelled",
