@@ -135,7 +135,7 @@ export default function CheckoutPage() {
                                 title: "Payment Successful!",
                                 description: "Your order is confirmed and download links are ready.",
                             })
-                            router.push(`/order/${order.id}`)
+                            window.location.href = `/order/${order.id}`
                         } catch (verifyError: any) {
                             setIsProcessing(false)
                             toast({
@@ -144,7 +144,7 @@ export default function CheckoutPage() {
                                 variant: "destructive"
                             })
                             // Redirect to order page to show pending status
-                            router.push(`/order/${order.id}`)
+                            window.location.href = `/order/${order.id}`
                         }
                     },
                     modal: {
@@ -155,7 +155,7 @@ export default function CheckoutPage() {
                                 description: "You can retry payment from the order page.",
                             })
                             // Do NOT clear cart — user may want to retry or continue shopping
-                            router.push(`/order/${order.id}`)
+                            window.location.href = `/order/${order.id}`
                         }
                     }
                 })
