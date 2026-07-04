@@ -17,33 +17,66 @@ from app.routers import (
     auth, categories, jerseys, orders, payments, admin
 )
 
+import logging
+
+logger = logging.getLogger("startup")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Configure structured logging
     setup_logging()
 
+    logger.warning("=" * 80)
+    logger.warning("APPLICATION STARTUP")
+    logger.warning(f"ENVIRONMENT = {settings.ENVIRONMENT}")
+
+    logger.warning("Environment Variable Status:")
+    logger.warning(f"SECRET_KEY: {bool(settings.SECRET_KEY)}")
+    logger.warning(f"DATABASE_URL: {bool(settings.DATABASE_URL)}")
+    logger.warning(f"RAZORPAY_KEY_ID: {bool(settings.RAZORPAY_KEY_ID)}")
+    logger.warning(f"RAZORPAY_KEY_SECRET: {bool(settings.RAZORPAY_KEY_SECRET)}")
+    logger.warning(f"R2_ACCESS_KEY_ID: {bool(settings.R2_ACCESS_KEY_ID)}")
+    logger.warning(f"R2_SECRET_ACCESS_KEY: {bool(settings.R2_SECRET_ACCESS_KEY)}")
+    logger.warning(f"R2_ENDPOINT: {bool(settings.R2_ENDPOINT)}")
+    logger.warning(f"R2_ACCOUNT_ID: {bool(settings.R2_ACCOUNT_ID)}")
+    logger.warning(f"R2_BUCKET_NAME: {bool(settings.R2_BUCKET_NAME)}")
+    logger.warning("=" * 80)
+
     # Validate critical environment variables in production
     if settings.ENVIRONMENT == "production":
         missing_vars = []
+
         if not settings.SECRET_KEY or settings.SECRET_KEY == "your-super-secret-key-change-this-in-production":
             missing_vars.append("SECRET_KEY")
+
         if not settings.DATABASE_URL:
             missing_vars.append("DATABASE_URL")
+
         if not settings.RAZORPAY_KEY_ID:
             missing_vars.append("RAZORPAY_KEY_ID")
+
         if not settings.RAZORPAY_KEY_SECRET:
             missing_vars.append("RAZORPAY_KEY_SECRET")
-        if not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY or not settings.R2_ENDPOINT:
+
+        if (
+            not settings.R2_ACCESS_KEY_ID
+            or not settings.R2_SECRET_ACCESS_KEY
+            or not settings.R2_ENDPOINT
+        ):
             missing_vars.append("R2 Credentials/Endpoint")
-        
+
         if missing_vars:
+            logger.error(f"Missing variables: {missing_vars}")
+
             raise RuntimeError(
                 f"Startup failed. Missing critical environment variables for production: {', '.join(missing_vars)}"
             )
+
     yield
+
     # Cleanup
     await engine.dispose()
-
 is_prod = settings.ENVIRONMENT == "production"
 app = FastAPI(
     title="Trends API",
