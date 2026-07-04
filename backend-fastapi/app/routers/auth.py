@@ -45,7 +45,7 @@ async def admin_login(body: AdminLoginRequest, request: Request, response: Respo
         value=access_token,
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
@@ -53,7 +53,7 @@ async def admin_login(body: AdminLoginRequest, request: Request, response: Respo
         value=refresh_token,
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
     )
     
@@ -107,7 +107,7 @@ async def refresh_token(request: Request, response: Response, body: RefreshToken
         value=access_token,
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
@@ -115,7 +115,7 @@ async def refresh_token(request: Request, response: Response, body: RefreshToken
         value=new_refresh_token,
         httponly=True,
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
     )
     
@@ -138,12 +138,12 @@ async def admin_logout(response: Response):
     response.delete_cookie(
         key="admin_access_token",
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
     )
     response.delete_cookie(
         key="admin_refresh_token",
         secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
     )
     return ApiResponse(success=True, message="Logged out successfully")
 
