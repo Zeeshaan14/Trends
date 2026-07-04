@@ -29,6 +29,18 @@ export interface RazorpayResponse {
     razorpay_signature: string
 }
 
+export interface RazorpayError {
+    code: string
+    description: string
+    source: string
+    step: string
+    reason: string
+    metadata: {
+        order_id: string
+        payment_id: string
+    }
+}
+
 declare global {
     interface Window {
         Razorpay: any
@@ -61,18 +73,24 @@ export function loadRazorpayScript(): Promise<boolean> {
     })
 }
 
-export async function openRazorpayCheckout(options: RazorpayOptions): Promise<void> {
+export async function openRazorpayCheckout(
+    options: RazorpayOptions,
+    onPaymentFailed?: (error: RazorpayError) => void
+): Promise<void> {
     const isLoaded = await loadRazorpayScript()
     if (!isLoaded) {
         throw new Error("Razorpay SDK failed to load. Are you online?")
     }
 
     const rzp = new window.Razorpay(options)
-    
-    // Handle payment failures natively via Razorpay
-    rzp.on('payment.failed', function (response: any) {
-        console.error("Payment failed", response.error)
-        // Options could be extended to handle this
+
+    // Handle payment failures — invoke callback or log
+    rzp.on('payment.failed', function (response: { error: RazorpayError }) {
+        if (onPaymentFailed) {
+            onPaymentFailed(response.error)
+        } else {
+            console.error("Payment failed:", response.error?.description || "Unknown error")
+        }
     })
 
     rzp.open()

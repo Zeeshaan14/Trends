@@ -22,6 +22,24 @@ interface JerseyCardProps {
     index?: number
 }
 
+const BADGE_COLOR_MAP: Record<string, string> = {
+    red: "bg-red-500 hover:bg-red-600 text-white border-none",
+    blue: "bg-blue-500 hover:bg-blue-600 text-white border-none",
+    green: "bg-green-500 hover:bg-green-600 text-white border-none",
+    primary: "bg-primary hover:bg-primary/90 text-primary-foreground border-none",
+    orange: "bg-orange-500 hover:bg-orange-600 text-white border-none",
+    yellow: "bg-yellow-500 hover:bg-yellow-600 text-black border-none",
+    purple: "bg-purple-500 hover:bg-purple-600 text-white border-none",
+    slate: "bg-slate-500 hover:bg-slate-600 text-white border-none",
+    default: "bg-primary hover:bg-primary/90 text-primary-foreground border-none",
+}
+
+function getBadgeColorClass(color?: string | null): string {
+    if (!color) return BADGE_COLOR_MAP.default
+    const clean = color.toLowerCase().trim()
+    return BADGE_COLOR_MAP[clean] || BADGE_COLOR_MAP.default
+}
+
 export function JerseyCard({
     id,
     name,
@@ -62,7 +80,7 @@ export function JerseyCard({
                     {/* Badge */}
                     {badge && (
                         <div className="absolute top-3 left-3 z-10">
-                            <Badge className={`${badgeColor} text-xs font-semibold`}>
+                            <Badge className={`${getBadgeColorClass(badgeColor)} text-[10px] font-bold tracking-wider uppercase px-2.5 py-1`}>
                                 {badge}
                             </Badge>
                         </div>

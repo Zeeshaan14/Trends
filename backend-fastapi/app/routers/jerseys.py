@@ -68,6 +68,16 @@ def validate_preview_image(file: UploadFile):
         raise ApiException("Preview image too large. Maximum size is 10MB.", 400)
 
 
+ALLOWED_BADGE_COLORS = {"red", "blue", "green", "primary", "orange", "yellow", "purple", "slate", "default", "", None}
+
+def validate_badge_color(color: Optional[str]):
+    if color is not None and color.strip() not in ALLOWED_BADGE_COLORS:
+        raise ApiException(
+            "Invalid badge color. Allowed: red, blue, green, primary, orange, yellow, purple, slate, default",
+            400
+        )
+
+
 # --- Public endpoints ---
 
 @router.get("", response_model=PaginatedResponse)
@@ -194,6 +204,8 @@ async def create_jersey(
         validate_design_file(design_file)
     if preview_image and preview_image.filename:
         validate_preview_image(preview_image)
+    
+    validate_badge_color(badgeColor)
 
     # Resolve the display image — file upload takes priority over URL string
     display_image = image or ""
@@ -263,6 +275,8 @@ async def update_jersey(
     
     if not jersey:
         raise ApiException("Jersey not found", 404)
+
+    validate_badge_color(badgeColor)
 
     # Update scalar fields if provided
     if name is not None:

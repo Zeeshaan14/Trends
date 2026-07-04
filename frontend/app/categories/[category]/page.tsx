@@ -11,14 +11,7 @@ import { JerseyCard } from "@/components/jersey-card"
 import { getCategories, getJerseys } from "@/lib/api"
 import { Category, Jersey } from "@/lib/types"
 import { notFound } from "next/navigation"
-
-// Fallback colors for categories
-const categoryColors: Record<string, string> = {
-    cricket: "from-yellow-500/20",
-    football: "from-blue-500/20",
-    basketball: "from-red-500/20",
-    volleyball: "from-slate-500/20",
-}
+import { categoryColors } from "@/lib/category-colors"
 
 export default function CategoryPage() {
     const params = useParams()

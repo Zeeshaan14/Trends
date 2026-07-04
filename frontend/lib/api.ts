@@ -8,7 +8,11 @@ import {
     Order
 } from "./types"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+
+if (!process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV === "production") {
+    throw new Error("NEXT_PUBLIC_API_URL is required in production environment.")
+}
 
 class ApiError extends Error {
     constructor(public status: number, message: string) {
@@ -19,8 +23,10 @@ class ApiError extends Error {
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${API_BASE}${endpoint}`
+    console.log("[fetchApi] Calling:", url)
 
     const response = await fetch(url, {
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
             ...options?.headers,
@@ -92,6 +98,14 @@ export async function createOrder(data: CreateOrderRequest): Promise<Order> {
     const response = await fetchApi<ApiResponse<Order>>("/orders", {
         method: "POST",
         body: JSON.stringify(data),
+    })
+    return response.data
+}
+
+export async function getOrderById(orderId: string, email: string): Promise<any> {
+    const response = await fetchApi<ApiResponse<any>>(`/orders/${orderId}/verify`, {
+        method: "POST",
+        body: JSON.stringify({ email }),
     })
     return response.data
 }
@@ -187,26 +201,29 @@ export async function adminLogin(email: string, password: string): Promise<Admin
     return response.data
 }
 
-export async function getDashboardStats(token: string): Promise<DashboardStats> {
-    const response = await fetchApi<ApiResponse<DashboardStats>>("/admin/dashboard", {
-        headers: { "Authorization": `Bearer ${token}` },
-    })
+export async function getDashboardStats(token?: string): Promise<DashboardStats> {
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    const response = await fetchApi<ApiResponse<DashboardStats>>("/admin/dashboard", { headers })
     return response.data
 }
 
-export async function getAdminOrders(token: string, status?: string): Promise<{ data: AdminOrder[]; pagination: any }> {
+export async function getAdminOrders(token?: string, status?: string): Promise<{ data: AdminOrder[]; pagination: any }> {
     const params = new URLSearchParams()
     if (status) params.set("status", status)
     const query = params.toString()
 
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
     const response = await fetchApi<{ success: boolean; data: AdminOrder[]; pagination: any }>(
         `/admin/orders${query ? `?${query}` : ""}`,
-        { headers: { "Authorization": `Bearer ${token}` } }
+        { headers }
     )
     return { data: response.data, pagination: response.pagination }
 }
 
-export async function createJerseyAdmin(token: string, data: {
+export async function createJerseyAdmin(token?: string, data?: {
     name: string
     player: string
     price: number
@@ -219,22 +236,28 @@ export async function createJerseyAdmin(token: string, data: {
     previewImage?: File
 }): Promise<Jersey> {
     const formData = new FormData()
-    formData.append("name", data.name)
-    formData.append("player", data.player)
-    formData.append("price", data.price.toString())
-    if (data.originalPrice) formData.append("originalPrice", data.originalPrice.toString())
-    if (data.image) formData.append("image", data.image)
-    if (data.badge) formData.append("badge", data.badge)
-    if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
-    formData.append("categoryId", data.categoryId)
-    if (data.designFile) formData.append("design_file", data.designFile)
-    if (data.previewImage) formData.append("preview_image", data.previewImage)
+    if (data) {
+        formData.append("name", data.name)
+        formData.append("player", data.player)
+        formData.append("price", data.price.toString())
+        if (data.originalPrice) formData.append("originalPrice", data.originalPrice.toString())
+        if (data.image) formData.append("image", data.image)
+        if (data.badge) formData.append("badge", data.badge)
+        if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
+        formData.append("categoryId", data.categoryId)
+        if (data.designFile) formData.append("design_file", data.designFile)
+        if (data.previewImage) formData.append("preview_image", data.previewImage)
+    }
 
     const url = `${API_BASE}/jerseys`
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
     const response = await fetch(url, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers,
         body: formData,
+        credentials: "include",
     })
 
     if (!response.ok) {
@@ -246,16 +269,19 @@ export async function createJerseyAdmin(token: string, data: {
     return json.data
 }
 
-export async function updateOrderStatus(token: string, orderId: string, status: string): Promise<any> {
+export async function updateOrderStatus(token?: string, orderId?: string, status?: string): Promise<any> {
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
     const response = await fetchApi<ApiResponse<any>>(`/admin/orders/${orderId}/status`, {
         method: "PATCH",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers,
         body: JSON.stringify({ status }),
     })
     return response.data
 }
 
-export async function updateJerseyAdmin(token: string, id: number, data: {
+export async function updateJerseyAdmin(token?: string, id?: number, data?: {
     name?: string
     player?: string
     price?: number
@@ -268,22 +294,28 @@ export async function updateJerseyAdmin(token: string, id: number, data: {
     previewImage?: File
 }): Promise<Jersey> {
     const formData = new FormData()
-    if (data.name) formData.append("name", data.name)
-    if (data.player) formData.append("player", data.player)
-    if (data.price !== undefined) formData.append("price", data.price.toString())
-    if (data.originalPrice !== undefined) formData.append("originalPrice", data.originalPrice.toString())
-    if (data.image) formData.append("image", data.image)
-    if (data.badge !== undefined) formData.append("badge", data.badge || "")
-    if (data.badgeColor !== undefined) formData.append("badgeColor", data.badgeColor || "")
-    if (data.categoryId) formData.append("categoryId", data.categoryId)
-    if (data.designFile) formData.append("design_file", data.designFile)
-    if (data.previewImage) formData.append("preview_image", data.previewImage)
+    if (data) {
+        if (data.name) formData.append("name", data.name)
+        if (data.player) formData.append("player", data.player)
+        if (data.price !== undefined) formData.append("price", data.price.toString())
+        if (data.originalPrice !== undefined) formData.append("originalPrice", data.originalPrice.toString())
+        if (data.image) formData.append("image", data.image)
+        if (data.badge !== undefined) formData.append("badge", data.badge || "")
+        if (data.badgeColor !== undefined) formData.append("badgeColor", data.badgeColor || "")
+        if (data.categoryId) formData.append("categoryId", data.categoryId)
+        if (data.designFile) formData.append("design_file", data.designFile)
+        if (data.previewImage) formData.append("preview_image", data.previewImage)
+    }
 
     const url = `${API_BASE}/jerseys/${id}`
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
     const response = await fetch(url, {
         method: "PATCH",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers,
         body: formData,
+        credentials: "include",
     })
 
     if (!response.ok) {
@@ -295,10 +327,13 @@ export async function updateJerseyAdmin(token: string, id: number, data: {
     return json.data
 }
 
-export async function deleteJerseyAdmin(token: string, id: number): Promise<void> {
+export async function deleteJerseyAdmin(token?: string, id?: number): Promise<void> {
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+
     const response = await fetchApi<ApiResponse<any>>(`/jerseys/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+        headers,
     })
     return response.data
 }

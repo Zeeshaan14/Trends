@@ -14,6 +14,24 @@ import { Jersey } from "@/lib/types"
 import { JerseyCard } from "@/components/jersey-card"
 import { useCart } from "@/context/cart-context"
 
+const BADGE_COLOR_MAP: Record<string, string> = {
+    red: "bg-red-500 hover:bg-red-600 text-white border-none",
+    blue: "bg-blue-500 hover:bg-blue-600 text-white border-none",
+    green: "bg-green-500 hover:bg-green-600 text-white border-none",
+    primary: "bg-primary hover:bg-primary/90 text-primary-foreground border-none",
+    orange: "bg-orange-500 hover:bg-orange-600 text-white border-none",
+    yellow: "bg-yellow-500 hover:bg-yellow-600 text-black border-none",
+    purple: "bg-purple-500 hover:bg-purple-600 text-white border-none",
+    slate: "bg-slate-500 hover:bg-slate-600 text-white border-none",
+    default: "bg-primary hover:bg-primary/90 text-primary-foreground border-none",
+}
+
+function getBadgeColorClass(color?: string | null): string {
+    if (!color) return BADGE_COLOR_MAP.default
+    const clean = color.toLowerCase().trim()
+    return BADGE_COLOR_MAP[clean] || BADGE_COLOR_MAP.default
+}
+
 export default function JerseyPage() {
     const params = useParams()
     const router = useRouter()
@@ -26,9 +44,16 @@ export default function JerseyPage() {
     const { addItem, clearCart } = useCart()
 
     useEffect(() => {
+        const jerseyId = Number(id)
+        if (!Number.isInteger(jerseyId) || jerseyId <= 0) {
+            setNotFoundState(true)
+            setLoading(false)
+            return
+        }
+
         async function loadData() {
             try {
-                const jerseyData = await getJerseyById(parseInt(id))
+                const jerseyData = await getJerseyById(jerseyId)
                 setJersey(jerseyData)
 
                 // Fetch related jerseys from same category
@@ -109,7 +134,7 @@ export default function JerseyPage() {
                     >
                         {jersey.badge && (
                             <div className="absolute top-4 left-4 z-10">
-                                <Badge className={`${jersey.badgeColor} text-sm font-semibold px-3 py-1`}>
+                                <Badge className={`${getBadgeColorClass(jersey.badgeColor)} text-[10px] font-bold tracking-wider uppercase px-2.5 py-1`}>
                                     {jersey.badge}
                                 </Badge>
                             </div>

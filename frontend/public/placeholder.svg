@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500" fill="none">
+  <rect width="400" height="500" fill="#1a1a2e" rx="12"/>
+  <rect x="100" y="140" width="200" height="220" rx="20" fill="#16213e" stroke="#0f3460" stroke-width="2"/>
+  <!-- Jersey shape -->
+  <path d="M160 170 L140 190 L140 320 L260 320 L260 190 L240 170 L220 185 L200 175 L180 185 Z" fill="#0f3460" stroke="#e94560" stroke-width="1.5"/>
+  <!-- Collar -->
+  <path d="M180 170 L200 160 L220 170 L210 180 L200 175 L190 180 Z" fill="#1a1a2e" stroke="#e94560" stroke-width="1"/>
+  <!-- Sleeves -->
+  <path d="M160 170 L130 200 L140 210 L150 195 L150 190 Z" fill="#0f3460" stroke="#e94560" stroke-width="1"/>
+  <path d="M240 170 L270 200 L260 210 L250 195 L250 190 Z" fill="#0f3460" stroke="#e94560" stroke-width="1"/>
+  <!-- Number -->
+  <text x="200" y="260" text-anchor="middle" font-family="sans-serif" font-size="48" font-weight="bold" fill="#e94560" opacity="0.6">00</text>
+  <!-- Label -->
+  <text x="200" y="400" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#555" letter-spacing="2">NO IMAGE AVAILABLE</text>
+</svg>

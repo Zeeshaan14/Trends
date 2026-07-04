@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/ui/use-toast"
 import { createOrder, verifyPayment } from "@/lib/api"
 import { openRazorpayCheckout } from "@/lib/razorpay"
+import { checkoutSchema } from "@/lib/validators"
 
 export default function CheckoutPage() {
     const router = useRouter()
@@ -21,8 +22,8 @@ export default function CheckoutPage() {
     const [agreedToTerms, setAgreedToTerms] = useState(false)
     const { toast } = useToast()
 
-    const tax = totalPrice * 0 // GST 18%
-    const finalTotal = totalPrice + tax
+    // Tax is currently 0 on the backend — will be enabled later
+    const finalTotal = totalPrice
 
     const [formData, setFormData] = useState({
         companyName: "",
@@ -30,11 +31,7 @@ export default function CheckoutPage() {
         phone: "",
     })
 
-    const [errors, setErrors] = useState({
-        companyName: false,
-        email: false,
-        phone: false,
-    })
+    const [errors, setErrors] = useState<Record<string, string>>({})
 
     const isFormValid = formData.companyName.trim() !== "" &&
         formData.email.trim() !== "" &&
@@ -46,31 +43,37 @@ export default function CheckoutPage() {
             ...formData,
             [name]: value,
         })
-        // Clear error when user starts typing
-        if (value.trim() !== "") {
-            setErrors(prev => ({ ...prev, [name]: false }))
+        // Clear field error when user starts typing
+        if (errors[name]) {
+            setErrors(prev => {
+                const copy = { ...prev }
+                delete copy[name]
+                return copy
+            })
         }
     }
 
     const handlePlaceOrder = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        // Validate form and show errors
-        const newErrors = {
-            companyName: formData.companyName.trim() === "",
-            email: formData.email.trim() === "",
-            phone: formData.phone.trim() === "",
-        }
-        setErrors(newErrors)
-
-        // Check if there are any errors
-        if (newErrors.companyName || newErrors.email || newErrors.phone) {
+        // Validate form using Zod schema
+        const result = checkoutSchema.safeParse(formData)
+        if (!result.success) {
+            const fieldErrors: Record<string, string> = {}
+            result.error.issues.forEach((issue) => {
+                const path = issue.path[0] as string
+                fieldErrors[path] = issue.message
+            })
+            setErrors(fieldErrors)
             toast({
-                title: "Required Fields Missing",
-                description: "Please fill in all required fields.",
+                title: "Invalid Input",
+                description: Object.values(fieldErrors)[0] || "Please fill in all required fields correctly.",
+                variant: "destructive",
             })
             return
         }
+
+        setErrors({})
 
         if (!agreedToTerms) {
             toast({
@@ -103,7 +106,7 @@ export default function CheckoutPage() {
             if (order.razorpayOrderId && order.razorpayKeyId) {
                 await openRazorpayCheckout({
                     key: order.razorpayKeyId,
-                    amount: Math.round(finalTotal * 100), // Expected in paise
+                    amount: Math.round(order.total * 100), // Use server-authoritative total (in paise)
                     currency: "INR",
                     name: "NuJerseys",
                     description: "Digital Design Purchase",
@@ -151,8 +154,7 @@ export default function CheckoutPage() {
                                 title: "Payment Cancelled",
                                 description: "You can retry payment from the order page.",
                             })
-                            // Clear cart and redirect to pending order so they can retry
-                            clearCart()
+                            // Do NOT clear cart — user may want to retry or continue shopping
                             router.push(`/order/${order.id}`)
                         }
                     }
@@ -251,7 +253,7 @@ export default function CheckoutPage() {
                                         className={`bg-background ${errors.companyName ? "border-red-500 ring-1 ring-red-500" : "border-border"}`}
                                     />
                                     {errors.companyName && (
-                                        <p className="text-red-500 text-xs mt-1">Company name is required</p>
+                                        <p className="text-red-500 text-xs mt-1">{errors.companyName}</p>
                                     )}
                                 </div>
                                 <div>
@@ -268,7 +270,7 @@ export default function CheckoutPage() {
                                         className={`bg-background ${errors.email ? "border-red-500 ring-1 ring-red-500" : "border-border"}`}
                                     />
                                     {errors.email && (
-                                        <p className="text-red-500 text-xs mt-1">Email is required</p>
+                                        <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                                     )}
                                 </div>
                                 <div>
@@ -285,7 +287,7 @@ export default function CheckoutPage() {
                                         className={`bg-background ${errors.phone ? "border-red-500 ring-1 ring-red-500" : "border-border"}`}
                                     />
                                     {errors.phone && (
-                                        <p className="text-red-500 text-xs mt-1">Phone number is required</p>
+                                        <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
                                     )}
                                 </div>
                             </div>
@@ -340,12 +342,6 @@ export default function CheckoutPage() {
                                         ₹{totalPrice.toFixed(2)}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">GST (18%)</span>
-                                    <span className="text-foreground font-medium">
-                                        ₹{tax.toFixed(2)}
-                                    </span>
-                                </div>
                                 <Separator className="my-2" />
                                 <div className="flex justify-between">
                                     <span className="font-bold text-lg">Total</span>
@@ -398,7 +394,7 @@ export default function CheckoutPage() {
                                 disabled={isProcessing || !agreedToTerms}
                                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base h-12 disabled:opacity-50"
                             >
-                                {isProcessing ? "Processing..." : `Pay with Razorpay ₹${finalTotal.toFixed(2)}`}
+                                {isProcessing ? "Processing..." : `Pay with Razorpay ₹${finalTotal.toFixed(0)}`}
                             </Button>
 
                             <p className="text-xs text-center text-muted-foreground mt-4">

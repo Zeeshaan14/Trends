@@ -14,43 +14,32 @@ import {
     LogOut,
     ChevronRight
 } from "lucide-react"
+import { getDashboardStats, DashboardStats } from "@/lib/api"
+import { useAdminSession } from "@/hooks/use-admin-session"
 import { Button } from "@/components/ui/button"
-import { getDashboardStats, AdminUser, DashboardStats, AdminLoginResponse } from "@/lib/api"
 
 export default function AdminDashboardPage() {
-    const router = useRouter()
-    const [admin, setAdmin] = useState<AdminUser | null>(null)
+    const { admin, logout } = useAdminSession(true)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Check if admin is logged in
-        const stored = localStorage.getItem("adminUser")
-        if (!stored) {
-            router.push("/admin")
-            return
-        }
-
-        const session = JSON.parse(stored) as AdminLoginResponse
-        setAdmin(session.user)
+        if (!admin) return
 
         // Fetch dashboard stats
-        getDashboardStats(session.accessToken)
+        getDashboardStats()
             .then(setStats)
             .catch((err) => {
                 console.error("Failed to fetch stats:", err)
-                // If auth fails, redirect to login
                 if (err.status === 401 || err.status === 403) {
-                    localStorage.removeItem("adminUser")
-                    router.push("/admin")
+                    logout()
                 }
             })
             .finally(() => setLoading(false))
-    }, [router])
+    }, [admin, logout])
 
     const handleLogout = () => {
-        localStorage.removeItem("adminUser")
-        router.push("/admin")
+        logout()
     }
 
     if (loading) {

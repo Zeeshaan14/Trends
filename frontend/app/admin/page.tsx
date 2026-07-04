@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Lock, Mail, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { adminLogin } from "@/lib/api"
+import { setStoredAdminUser } from "@/lib/auth/admin-session"
 
 export default function AdminLoginPage() {
     const router = useRouter()
@@ -16,9 +17,30 @@ export default function AdminLoginPage() {
         email: "",
         password: "",
     })
+    
+    // Front-end brute force protection (Exponential backoff)
+    const [failedAttempts, setFailedAttempts] = useState(0)
+    const [cooldownTime, setCooldownTime] = useState(0)
+
+    useEffect(() => {
+        if (cooldownTime <= 0) return
+        const timer = setInterval(() => {
+            setCooldownTime((prev) => prev - 1)
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [cooldownTime])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        if (cooldownTime > 0) {
+            toast({
+                title: "Too Many Requests",
+                description: `Please wait ${cooldownTime} seconds before trying again.`,
+                variant: "destructive"
+            })
+            return
+        }
 
         if (!formData.email || !formData.password) {
             toast({
@@ -33,8 +55,9 @@ export default function AdminLoginPage() {
         try {
             const session = await adminLogin(formData.email, formData.password)
 
-            // Store admin info in localStorage
-            localStorage.setItem("adminUser", JSON.stringify(session))
+            // Store ONLY non-sensitive user profile in local storage
+            setStoredAdminUser(session.user)
+            setFailedAttempts(0)
 
             toast({
                 title: "Login Successful",
@@ -43,10 +66,25 @@ export default function AdminLoginPage() {
 
             router.push("/admin/dashboard")
         } catch (error: any) {
-            toast({
-                title: "Login Failed",
-                description: error.message || "Invalid credentials",
-            })
+            const nextAttempts = failedAttempts + 1
+            setFailedAttempts(nextAttempts)
+            
+            // Set cooldown after 3 failed attempts: 30s, 60s, 120s...
+            if (nextAttempts >= 3) {
+                const backoff = 30 * Math.pow(2, nextAttempts - 3)
+                setCooldownTime(backoff)
+                toast({
+                    title: "Too Many Failed Attempts",
+                    description: `Too many failed logins. System is locked for ${backoff} seconds.`,
+                    variant: "destructive"
+                })
+            } else {
+                toast({
+                    title: "Login Failed",
+                    description: error.message || "Invalid credentials",
+                    variant: "destructive"
+                })
+            }
         } finally {
             setIsLoading(false)
         }
@@ -82,6 +120,7 @@ export default function AdminLoginPage() {
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="pl-10 bg-background border-border"
+                                disabled={cooldownTime > 0}
                             />
                         </div>
                     </div>
@@ -98,17 +137,20 @@ export default function AdminLoginPage() {
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 className="pl-10 bg-background border-border"
+                                disabled={cooldownTime > 0}
                             />
                         </div>
                     </div>
 
                     <Button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={isLoading || cooldownTime > 0}
                         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12"
                     >
                         {isLoading ? (
                             "Signing in..."
+                        ) : cooldownTime > 0 ? (
+                            `Locked (${cooldownTime}s)`
                         ) : (
                             <>
                                 <LogIn className="h-4 w-4 mr-2" />

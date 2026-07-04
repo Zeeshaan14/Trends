@@ -8,8 +8,9 @@ import { CheckCircle, Download, ArrowRight, Package, AlertCircle, RefreshCw, Loa
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
-import { verifyPayment, getDesignDownloadUrl } from "@/lib/api"
+import { verifyPayment, getDesignDownloadUrl, getOrderById } from "@/lib/api"
 import { openRazorpayCheckout } from "@/lib/razorpay"
+import { useCart } from "@/context/cart-context"
 
 interface OrderItem {
     id: string
@@ -49,6 +50,7 @@ export default function OrderConfirmationPage() {
     const router = useRouter()
     const emailFromUrl = searchParams ? searchParams.get("email") : null
     const { toast } = useToast()
+    const { clearCart } = useCart()
     const [order, setOrder] = useState<Order | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -92,12 +94,14 @@ export default function OrderConfirmationPage() {
                             razorpaySignature: response.razorpay_signature,
                         })
 
+                        clearCart()
                         toast({
                             title: "Payment Successful!",
                             description: "Your order is confirmed and download links are ready.",
                         })
-                        // Refresh the page to get the updated order status and download links
-                        window.location.reload()
+                        // Refetch the order to get the updated status without a hard reload
+                        setIsRetrying(false)
+                        await fetchOrder()
                     } catch (verifyError: any) {
                         toast({
                             title: "Verification Failed",
@@ -159,32 +163,34 @@ export default function OrderConfirmationPage() {
         }
     }
 
-    useEffect(() => {
-        if (emailFromUrl && typeof window !== "undefined") {
-            localStorage.setItem("last_checkout_email", emailFromUrl)
-        }
-
-        const fetchOrder = async () => {
-            try {
-                const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-                const lastEmail = (typeof window !== "undefined" ? localStorage.getItem("last_checkout_email") : "") || ""
-                const response = await fetch(`${API_BASE}/orders/${orderId}?email=${encodeURIComponent(lastEmail)}`)
-                const data = await response.json()
-
-                if (!response.ok) {
-                    throw new Error(data.message || data.error || "Failed to fetch order")
-                }
-
-                setOrder(data.data)
-            } catch (err: any) {
-                setError(err.message)
-            } finally {
-                setLoading(false)
+    const fetchOrder = async () => {
+        try {
+            const lastEmail = (typeof window !== "undefined" ? localStorage.getItem("last_checkout_email") : "") || ""
+            if (!lastEmail) {
+                throw new Error("Email verification required. Please use the link sent to your email or contact support.")
             }
+            const data = await getOrderById(orderId, lastEmail)
+            setOrder(data)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        // If email is in URL, store it and strip it from the URL
+        if (emailFromUrl) {
+            if (typeof window !== "undefined") {
+                localStorage.setItem("last_checkout_email", emailFromUrl)
+            }
+            // Strip the email query param from URL
+            router.replace(`/order/${orderId}`)
+            return // Stop execution here; the router replacement triggers state update
         }
 
         fetchOrder()
-    }, [orderId, emailFromUrl])
+    }, [orderId, emailFromUrl, router])
 
     if (loading) {
         return (
@@ -311,10 +317,6 @@ export default function OrderConfirmationPage() {
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal</span>
                             <span className="text-foreground">₹{Number(order.subtotal).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">GST (18%)</span>
-                            <span className="text-foreground">₹{Number(order.tax ?? 0).toFixed(2)}</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex justify-between">

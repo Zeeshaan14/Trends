@@ -6,33 +6,24 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft, Package, Filter, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getAdminOrders, AdminOrder, AdminLoginResponse } from "@/lib/api"
+import { getAdminOrders, AdminOrder } from "@/lib/api"
+import { useAdminSession } from "@/hooks/use-admin-session"
 
 export default function AdminOrdersPage() {
-    const router = useRouter()
-    const [session, setSession] = useState<AdminLoginResponse | null>(null)
+    const { admin } = useAdminSession(true)
     const [orders, setOrders] = useState<AdminOrder[]>([])
     const [loading, setLoading] = useState(true)
     const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
     useEffect(() => {
-        const stored = localStorage.getItem("adminUser")
-        if (!stored) {
-            router.push("/admin")
-            return
-        }
-        setSession(JSON.parse(stored))
-    }, [router])
-
-    useEffect(() => {
-        if (!session) return
+        if (!admin) return
 
         setLoading(true)
-        getAdminOrders(session.accessToken, statusFilter || undefined)
+        getAdminOrders(undefined, statusFilter || undefined)
             .then((res) => setOrders(res.data))
             .catch(console.error)
             .finally(() => setLoading(false))
-    }, [session, statusFilter])
+    }, [admin, statusFilter])
 
     const statusColors: Record<string, string> = {
         PENDING: "bg-yellow-500/20 text-yellow-500",

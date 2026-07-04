@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { Instagram, Twitter, Youtube, Facebook } from "lucide-react"
 
 const footerLinks = {
@@ -35,6 +36,12 @@ const socialLinks = [
 ]
 
 export function Footer() {
+  const pathname = usePathname()
+
+  if (pathname?.startsWith("/admin")) {
+    return null
+  }
+
   return (
     <footer className="bg-card border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -127,7 +134,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="mt-16 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">© 2026 NU jerserys. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2026 NU Jerseys. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Privacy Policy
