@@ -49,18 +49,12 @@ export function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="inline-block mb-6">
-              <div 
-                className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
-                style={{
-                  WebkitMaskImage: 'url(/nu3.png)',
-                  WebkitMaskSize: 'contain',
-                  WebkitMaskRepeat: 'no-repeat',
-                  WebkitMaskPosition: 'left center',
-                  maskImage: 'url(/nu3.png)',
-                  maskSize: 'contain',
-                  maskRepeat: 'no-repeat',
-                  maskPosition: 'left center',
-                }}
+              <Image
+                src="/nu3%20logo.png"
+                alt="NU Jerseys"
+                width={180}
+                height={64}
+                className="h-10 w-auto"
               />
             </Link>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">

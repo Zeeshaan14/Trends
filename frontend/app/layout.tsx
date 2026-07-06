@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preload" href="/nu3.png" as="image" type="image/png" />
+        <link rel="preload" href="/nu3%20logo.png" as="image" type="image/png" />
       </head>
       <body className={`font-sans antialiased ${_inter.variable} ${_oswald.variable}`}>
         <CartProvider>

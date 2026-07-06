@@ -2,6 +2,7 @@
 
 import React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useAdminSession } from "@/hooks/use-admin-session"
 import { LayoutDashboard, ShoppingCart, Shirt, LogOut, Loader2 } from "lucide-react"
@@ -33,21 +34,15 @@ export default function AdminLayout({
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-border bg-card p-6 flex flex-col justify-between hidden md:flex">
-        <div className="space-y-8">
+      <aside className="hidden w-64 border-r border-border bg-card p-6 md:block">
+        <div className="flex h-full flex-col justify-between space-y-8">
           <Link href="/" className="inline-block">
-            <div 
-              className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
-              style={{
-                WebkitMaskImage: 'url(/nu3.png)',
-                WebkitMaskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'left center',
-                maskImage: 'url(/nu3.png)',
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'left center',
-              }}
+            <Image
+              src="/nu3%20logo.png"
+              alt="NU Jerseys"
+              width={180}
+              height={64}
+              className="h-10 w-auto"
             />
           </Link>
           
@@ -104,18 +99,12 @@ export default function AdminLayout({
         {/* Mobile Header */}
         <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between md:hidden">
           <Link href="/" className="inline-block">
-            <div 
-              className="h-8 w-[120px] bg-gradient-to-r from-primary to-foreground"
-              style={{
-                WebkitMaskImage: 'url(/nu3.png)',
-                WebkitMaskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'left center',
-                maskImage: 'url(/nu3.png)',
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'left center',
-              }}
+            <Image
+              src="/nu3%20logo.png"
+              alt="NU Jerseys"
+              width={140}
+              height={50}
+              className="h-8 w-auto"
             />
           </Link>
           

@@ -40,18 +40,13 @@ export function SiteNavbar() {
       <NavBody className="bg-background/80 dark:bg-background/80">
         {/* Logo */}
         <Link href="/" className="relative z-20 flex items-center">
-          <div 
-            className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
-            style={{
-              WebkitMaskImage: 'url(/nu3.png)',
-              WebkitMaskSize: 'contain',
-              WebkitMaskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'left center',
-              maskImage: 'url(/nu3.png)',
-              maskSize: 'contain',
-              maskRepeat: 'no-repeat',
-              maskPosition: 'left center',
-            }}
+          <Image
+            src="/nu3%20logo.png"
+            alt="NU Jerseys"
+            width={180}
+            height={64}
+            className="h-10 w-auto"
+            priority
           />
         </Link>
 
@@ -74,18 +69,13 @@ export function SiteNavbar() {
         <MobileNavHeader>
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div 
-              className="h-8 w-[120px] bg-gradient-to-r from-primary to-foreground"
-              style={{
-                WebkitMaskImage: 'url(/nu3.png)',
-                WebkitMaskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'left center',
-                maskImage: 'url(/nu3.png)',
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'left center',
-              }}
+            <Image
+              src="/nu3%20logo.png"
+              alt="NU Jerseys"
+              width={140}
+              height={50}
+              className="h-8 w-auto"
+              priority
             />
           </Link>
 
