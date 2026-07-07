@@ -36,7 +36,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Request failed" }))
-        throw new ApiError(response.status, error.message || "Request failed")
+        throw new ApiError(response.status, error.message || error.error || "Request failed")
     }
 
     return response.json()
@@ -208,6 +208,73 @@ export async function getDashboardStats(token?: string): Promise<DashboardStats>
     return response.data
 }
 
+async function getJerseyUploadUrl(
+    token: string,
+    fileType: "design" | "preview",
+    file: File,
+    jerseyId?: number,
+): Promise<{ uploadUrl: string; fileKey: string }> {
+    const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+    }
+
+    const response = await fetchApi<ApiResponse<{ uploadUrl: string; fileKey: string }>>(
+        "/jerseys/upload-url",
+        {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+                fileType,
+                filename: file.name,
+                contentType: file.type || "application/octet-stream",
+                jerseyId,
+            }),
+        },
+    )
+
+    return response.data
+}
+
+async function uploadFileToR2(uploadUrl: string, file: File): Promise<void> {
+    const response = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+    })
+
+    if (!response.ok) {
+        throw new ApiError(
+            response.status,
+            "Failed to upload file to storage. Check R2 CORS settings for your site origin.",
+        )
+    }
+}
+
+async function uploadJerseyFilesViaPresignedUrl(
+    token: string,
+    data: { designFile?: File; previewImage?: File },
+    jerseyId?: number,
+): Promise<{ designFileKey?: string; previewImageKey?: string }> {
+    let designFileKey: string | undefined
+    let previewImageKey: string | undefined
+
+    if (data.designFile) {
+        const { uploadUrl, fileKey } = await getJerseyUploadUrl(token, "design", data.designFile, jerseyId)
+        await uploadFileToR2(uploadUrl, data.designFile)
+        designFileKey = fileKey
+    }
+
+    if (data.previewImage) {
+        const { uploadUrl, fileKey } = await getJerseyUploadUrl(token, "preview", data.previewImage, jerseyId)
+        await uploadFileToR2(uploadUrl, data.previewImage)
+        previewImageKey = fileKey
+    }
+
+    return { designFileKey, previewImageKey }
+}
+
 export async function getAdminOrders(token?: string, status?: string): Promise<{ data: AdminOrder[]; pagination: any }> {
     const params = new URLSearchParams()
     if (status) params.set("status", status)
@@ -235,6 +302,15 @@ export async function createJerseyAdmin(token?: string, data?: {
     designFile?: File
     previewImage?: File
 }): Promise<Jersey> {
+    if (!token) {
+        throw new ApiError(401, "Admin authentication required")
+    }
+
+    const uploadedKeys = await uploadJerseyFilesViaPresignedUrl(token, {
+        designFile: data?.designFile,
+        previewImage: data?.previewImage,
+    })
+
     const formData = new FormData()
     if (data) {
         formData.append("name", data.name)
@@ -245,13 +321,14 @@ export async function createJerseyAdmin(token?: string, data?: {
         if (data.badge) formData.append("badge", data.badge)
         if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
         formData.append("categoryId", data.categoryId)
-        if (data.designFile) formData.append("design_file", data.designFile)
-        if (data.previewImage) formData.append("preview_image", data.previewImage)
+        if (uploadedKeys.designFileKey) formData.append("designFileKey", uploadedKeys.designFileKey)
+        if (uploadedKeys.previewImageKey) formData.append("previewImageKey", uploadedKeys.previewImageKey)
     }
 
     const url = `${API_BASE}/jerseys`
-    const headers: Record<string, string> = {}
-    if (token) headers["Authorization"] = `Bearer ${token}`
+    const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+    }
 
     const response = await fetch(url, {
         method: "POST",
@@ -293,6 +370,19 @@ export async function updateJerseyAdmin(token?: string, id?: number, data?: {
     designFile?: File
     previewImage?: File
 }): Promise<Jersey> {
+    if (!token || id === undefined) {
+        throw new ApiError(401, "Admin authentication required")
+    }
+
+    const uploadedKeys = await uploadJerseyFilesViaPresignedUrl(
+        token,
+        {
+            designFile: data?.designFile,
+            previewImage: data?.previewImage,
+        },
+        id,
+    )
+
     const formData = new FormData()
     if (data) {
         if (data.name) formData.append("name", data.name)
@@ -303,13 +393,14 @@ export async function updateJerseyAdmin(token?: string, id?: number, data?: {
         if (data.badge !== undefined) formData.append("badge", data.badge || "")
         if (data.badgeColor !== undefined) formData.append("badgeColor", data.badgeColor || "")
         if (data.categoryId) formData.append("categoryId", data.categoryId)
-        if (data.designFile) formData.append("design_file", data.designFile)
-        if (data.previewImage) formData.append("preview_image", data.previewImage)
+        if (uploadedKeys.designFileKey) formData.append("designFileKey", uploadedKeys.designFileKey)
+        if (uploadedKeys.previewImageKey) formData.append("previewImageKey", uploadedKeys.previewImageKey)
     }
 
     const url = `${API_BASE}/jerseys/${id}`
-    const headers: Record<string, string> = {}
-    if (token) headers["Authorization"] = `Bearer ${token}`
+    const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+    }
 
     const response = await fetch(url, {
         method: "PATCH",

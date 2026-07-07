@@ -30,4 +30,7 @@ class Jersey(Base):
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
 
     category: Mapped["Category"] = relationship(back_populates="jerseys")
-    order_items: Mapped[List["OrderItem"]] = relationship(back_populates="jersey")
+    order_items: Mapped[List["OrderItem"]] = relationship(
+        back_populates="jersey",
+        passive_deletes=True,
+    )
