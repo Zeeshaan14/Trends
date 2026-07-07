@@ -26,17 +26,23 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     console.log("[fetchApi] Calling:", url)
 
     const response = await fetch(url, {
+        ...options,
         credentials: "include",
         headers: {
             "Content-Type": "application/json",
             ...options?.headers,
         },
-        ...options,
     })
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Request failed" }))
-        throw new ApiError(response.status, error.message || error.error || "Request failed")
+        const detail = Array.isArray(error.detail)
+            ? error.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join("; ")
+            : undefined
+        throw new ApiError(
+            response.status,
+            error.message || error.error || detail || "Request failed",
+        )
     }
 
     return response.json()
