@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { Search, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +24,11 @@ const navLinks = [
 
 export function SiteNavbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  if (pathname?.startsWith("/admin")) {
+    return null
+  }
 
   return (
     <Navbar>
@@ -30,18 +36,13 @@ export function SiteNavbar() {
       <NavBody className="bg-background/80 dark:bg-background/80">
         {/* Logo */}
         <Link href="/" className="relative z-20 flex items-center">
-          <div 
-            className="h-10 w-[150px] bg-gradient-to-r from-primary to-foreground"
-            style={{
-              WebkitMaskImage: 'url(/nu3.png)',
-              WebkitMaskSize: 'contain',
-              WebkitMaskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'left center',
-              maskImage: 'url(/nu3.png)',
-              maskSize: 'contain',
-              maskRepeat: 'no-repeat',
-              maskPosition: 'left center',
-            }}
+          <Image
+            src="/nu3%20logo.png"
+            alt="NU Jerseys"
+            width={180}
+            height={64}
+            className="h-10 w-auto"
+            priority
           />
         </Link>
 
@@ -64,18 +65,13 @@ export function SiteNavbar() {
         <MobileNavHeader>
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div 
-              className="h-8 w-[120px] bg-gradient-to-r from-primary to-foreground"
-              style={{
-                WebkitMaskImage: 'url(/nu3.png)',
-                WebkitMaskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'left center',
-                maskImage: 'url(/nu3.png)',
-                maskSize: 'contain',
-                maskRepeat: 'no-repeat',
-                maskPosition: 'left center',
-              }}
+            <Image
+              src="/nu3%20logo.png"
+              alt="NU Jerseys"
+              width={140}
+              height={50}
+              className="h-8 w-auto"
+              priority
             />
           </Link>
 
@@ -94,14 +90,14 @@ export function SiteNavbar() {
           onClose={() => setIsMobileMenuOpen(false)}
         >
           {navLinks.map((link, idx) => (
-            <a
+            <Link
               key={`mobile-link-${idx}`}
               href={link.link}
               className="w-full text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               {link.name}
-            </a>
+            </Link>
           ))}
           <div className="flex items-center gap-4 py-2 text-foreground">
             <Button variant="ghost" className="justify-start px-0 hover:bg-transparent w-full">

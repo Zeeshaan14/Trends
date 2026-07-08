@@ -103,6 +103,39 @@ def get_public_preview_url(file_key: str) -> str:
     return f"{base}/{file_key}"
 
 
+def generate_presigned_upload_url(
+    file_key: str,
+    content_type: str,
+    expiry_seconds: int = 900,
+) -> str:
+    """Generate a presigned PUT URL so clients can upload directly to R2."""
+    client = get_r2_client()
+    return client.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": settings.R2_BUCKET_NAME,
+            "Key": file_key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=expiry_seconds,
+    )
+
+
+async def copy_r2_object(source_key: str, dest_key: str, content_type: str | None = None) -> str:
+    """Copy an object within the same R2 bucket."""
+    client = get_r2_client()
+    copy_kwargs = {
+        "Bucket": settings.R2_BUCKET_NAME,
+        "Key": dest_key,
+        "CopySource": {"Bucket": settings.R2_BUCKET_NAME, "Key": source_key},
+    }
+    if content_type:
+        copy_kwargs["ContentType"] = content_type
+    await asyncio.to_thread(client.copy_object, **copy_kwargs)
+    logger.info(f"Copied R2 object from {source_key} to {dest_key}")
+    return dest_key
+
+
 def generate_presigned_url(file_key: str, expiry_seconds: int = 900) -> str:
     """
     Generate a presigned download URL for an R2 object.

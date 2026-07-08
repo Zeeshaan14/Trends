@@ -1,11 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import Integer, String, Numeric, Float, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .order import OrderItem
 
 class Jersey(Base):
     __tablename__ = "jerseys"
@@ -24,4 +27,7 @@ class Jersey(Base):
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
 
-    order_items: Mapped[List["OrderItem"]] = relationship(back_populates="jersey")
+    order_items: Mapped[List["OrderItem"]] = relationship(
+        back_populates="jersey",
+        passive_deletes=True,
+    )

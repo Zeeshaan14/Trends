@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import String, Integer, ForeignKey, Numeric, DateTime, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -8,6 +8,11 @@ from sqlalchemy.sql import func
 from .base import Base
 from .enums import OrderStatus
 import cuid
+
+if TYPE_CHECKING:
+    from .payment import Payment
+    from .user import User
+    from .jersey import Jersey
 
 class Order(Base):
     __tablename__ = "orders"
@@ -33,7 +38,10 @@ class OrderItem(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: cuid.cuid())
     order_id: Mapped[str] = mapped_column("orderId", ForeignKey("orders.id", ondelete="CASCADE"))
-    jersey_id: Mapped[int] = mapped_column("jerseyId", ForeignKey("jerseys.id"))
+    jersey_id: Mapped[int] = mapped_column(
+        "jerseyId",
+        ForeignKey("jerseys.id", ondelete="RESTRICT"),
+    )
     quantity: Mapped[int]
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())

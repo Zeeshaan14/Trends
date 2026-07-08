@@ -178,6 +178,83 @@ async def get_order_by_id(id: str, request: Request, email: str | None = None, d
         }
     )
 
+@router.post("/{id}/verify", response_model=ApiResponse)
+@limiter.limit("30/minute")
+async def verify_order_access(
+    id: str,
+    body: DownloadDesignRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.jersey),
+            selectinload(Order.user),
+            selectinload(Order.payment)
+        )
+        .where(Order.id == id)
+    )
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise ApiException("Order not found", 404)
+
+    # Authorization Check
+    is_admin = False
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = decode_token(token)
+            if payload.get("type") == "access":
+                user_id = payload.get("sub")
+                if user_id:
+                    user_res = await db.execute(select(User).where(User.id == user_id))
+                    user = user_res.scalar_one_or_none()
+                    if user and user.role == Role.ADMIN:
+                        is_admin = True
+        except Exception:
+            pass
+
+    if not is_admin:
+        if body.email.strip().lower() != order.user.email.lower():
+            raise ApiException("Not authorized to view this order", 403)
+        
+    return ApiResponse(
+        success=True,
+        data={
+            "id": order.id,
+            "status": order.status,
+            "subtotal": float(order.subtotal),
+            "tax": float(order.tax),
+            "total": float(order.total),
+            "razorpayOrderId": order.razorpay_order_id,
+            "razorpayKeyId": settings.RAZORPAY_KEY_ID,
+            "user": {
+                "id": order.user.id,
+                "email": order.user.email,
+                "companyName": order.user.company_name,
+                "phone": order.user.phone,
+            },
+            "payment": {"id": order.payment.id, "status": order.payment.status} if order.payment else None,
+            "items": [
+                {
+                    "id": item.id,
+                    "quantity": item.quantity,
+                    "price": float(item.price),
+                    "jersey": {
+                        "id": item.jersey.id,
+                        "name": item.jersey.name,
+                        "image": item.jersey.image,
+                        "player": item.jersey.player,
+                        "hasDesignFile": bool(item.jersey.r2_file_key) if order.status == OrderStatus.PAID else False
+                    }
+                } for item in order.items
+            ]
+        }
+    )
+
 @router.get("", response_model=ApiResponse)
 @limiter.limit("20/minute")
 async def get_user_orders(request: Request, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):

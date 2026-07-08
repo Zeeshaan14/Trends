@@ -19,13 +19,17 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { getJerseys, createJerseyAdmin, updateJerseyAdmin, deleteJerseyAdmin, AdminLoginResponse } from "@/lib/api"
+import { getJerseys, createJerseyAdmin, updateJerseyAdmin, deleteJerseyAdmin } from "@/lib/api"
 import { Jersey } from "@/lib/types"
+import { useAdminSession } from "@/hooks/use-admin-session"
+
+const MAX_DESIGN_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+const MAX_PREVIEW_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
 
 export default function AdminJerseysPage() {
     const router = useRouter()
     const { toast } = useToast()
-    const [session, setSession] = useState<AdminLoginResponse | null>(null)
+    const { admin, token } = useAdminSession(true)
     const [jerseys, setJerseys] = useState<Jersey[]>([])
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
@@ -45,36 +49,67 @@ export default function AdminJerseysPage() {
     const [previewImage, setPreviewImage] = useState<File | null>(null)
 
     useEffect(() => {
-        const stored = localStorage.getItem("adminUser")
-        if (!stored) {
-            router.push("/admin")
-            return
-        }
-        setSession(JSON.parse(stored))
-    }, [router])
+        if (!admin || !token) return
 
-    useEffect(() => {
         getJerseys({ limit: 100 })
             .then((jerseysRes) => {
                 setJerseys(jerseysRes.data)
+                setLoading(false)
             })
-            .catch(console.error)
-            .finally(() => setLoading(false))
-    }, [])
+            .catch((err) => {
+                toast({ title: "Error", description: "Failed to load data", variant: "destructive" })
+                setLoading(false)
+            })
+    }, [admin, token, toast])
+
+    const handleDesignFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null
+        if (file && file.size > MAX_DESIGN_FILE_SIZE) {
+            toast({
+                title: "File Too Large",
+                description: "Design file zip cannot be larger than 100MB.",
+                variant: "destructive"
+            })
+            e.target.value = ""
+            setDesignFile(null)
+            return
+        }
+        setDesignFile(file)
+    }
+
+    const handlePreviewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null
+        if (file && file.size > MAX_PREVIEW_IMAGE_SIZE) {
+            toast({
+                title: "File Too Large",
+                description: "Preview image cannot be larger than 10MB.",
+                variant: "destructive"
+            })
+            e.target.value = ""
+            setPreviewImage(null)
+            return
+        }
+        setPreviewImage(file)
+    }
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value })
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!session) return
-
         if (!formData.name || !formData.player || !formData.price || (!formData.image && !previewImage)) {
             toast({ title: "Missing Fields", description: "Please fill in all required fields. You must provide an Image URL or upload a Preview Image." })
             return
         }
 
         setSubmitting(true)
+
+        if (!token) return
+
         try {
             if (editingId) {
-                const updatedJersey = await updateJerseyAdmin(session.accessToken, editingId, {
+                const updatedJersey = await updateJerseyAdmin(token, editingId, {
                     name: formData.name,
                     player: formData.player,
                     price: parseFloat(formData.price),
@@ -88,7 +123,7 @@ export default function AdminJerseysPage() {
                 setJerseys(jerseys.map(j => j.id === editingId ? updatedJersey : j))
                 toast({ title: "Success", description: "Jersey updated successfully!" })
             } else {
-                const newJersey = await createJerseyAdmin(session.accessToken, {
+                const newJersey = await createJerseyAdmin(token, {
                     name: formData.name,
                     player: formData.player,
                     price: parseFloat(formData.price),
@@ -121,23 +156,24 @@ export default function AdminJerseysPage() {
     const handleEdit = (jersey: Jersey) => {
         setEditingId(jersey.id)
         setFormData({
-            name: jersey.name,
-            player: jersey.player,
-            price: jersey.price.toString(),
-            originalPrice: jersey.originalPrice ? jersey.originalPrice.toString() : "",
-            image: jersey.image,
+            name: jersey.name || "",
+            player: jersey.player || "",
+            price: jersey.price?.toString() || "",
+            originalPrice: jersey.originalPrice?.toString() || "",
+            image: jersey.image || "",
             badge: jersey.badge || "",
             badgeColor: jersey.badgeColor || "",
+
         })
         setShowForm(true)
         window.scrollTo({ top: 0, behavior: "smooth" })
     }
 
     const handleDelete = async (id: number) => {
-        if (!session) return
+        if (!admin || !token) return
 
         try {
-            await deleteJerseyAdmin(session.accessToken, id)
+            await deleteJerseyAdmin(token, id)
             setJerseys(jerseys.filter((j) => j.id !== id))
             toast({ title: "Success", description: "Jersey deleted successfully" })
         } catch (error: any) {
@@ -249,7 +285,7 @@ export default function AdminJerseysPage() {
                                     <input
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
-                                        onChange={(e) => setPreviewImage(e.target.files?.[0] || null)}
+                                        onChange={handlePreviewImageChange}
                                         className="w-full h-10 px-3 py-2 rounded-md bg-background/50 border border-white/10 text-foreground text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 transition-all cursor-pointer"
                                     />
                                     {previewImage && (
@@ -266,7 +302,7 @@ export default function AdminJerseysPage() {
                                     <input
                                         type="file"
                                         accept=".zip,application/zip,application/x-zip-compressed"
-                                        onChange={(e) => setDesignFile(e.target.files?.[0] || null)}
+                                        onChange={handleDesignFileChange}
                                         className="w-full h-10 px-3 py-2 rounded-md bg-background/50 border border-white/10 text-foreground text-sm file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 transition-all cursor-pointer"
                                     />
                                     {designFile && (

@@ -21,9 +21,7 @@ export function CartSheet() {
     const router = useRouter()
     const { items, totalItems, totalPrice, updateQuantity, removeItem, isHydrated } = useCart()
 
-    const shipping = items.length > 0 ? 10 : 0
-    const tax = totalPrice * 0.08 // 8% tax
-    const finalTotal = totalPrice + shipping + tax
+    // Tax is currently 0 on the backend — will be enabled later
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -151,12 +149,6 @@ export function CartSheet() {
                                     <span className="text-muted-foreground">Subtotal</span>
                                     <span className="text-foreground font-medium">
                                         ₹{totalPrice.toFixed(2)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">GST (18%)</span>
-                                    <span className="text-foreground font-medium">
-                                        ₹{(totalPrice * 0).toFixed(2)}
                                     </span>
                                 </div>
                                 <Separator className="my-2" />

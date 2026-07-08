@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 class CreateJerseyRequest(BaseModel):
@@ -19,6 +19,13 @@ class UpdateJerseyRequest(BaseModel):
     image: Optional[str] = None
     badge: Optional[str] = None
     badgeColor: Optional[str] = None
+
+class PresignedUploadRequest(BaseModel):
+    fileType: Literal["design", "preview"]
+    filename: str
+    contentType: str
+    jerseyId: Optional[int] = None
+
 
 class JerseyFilterParams(BaseModel):
     minPrice: Optional[float] = Field(None, ge=0)

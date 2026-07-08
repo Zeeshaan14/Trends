@@ -1,6 +1,4 @@
-import logging
-
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -13,6 +11,8 @@ from app.security.passwords import verify_password, get_password_hash, is_bcrypt
 from app.security.jwt import create_access_token, create_refresh_token, decode_token
 from app.security.rate_limit import limiter
 from app.exceptions import ApiException
+from app.config import settings
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.post("/admin/login", response_model=ApiResponse[TokenResponse])
 @limiter.limit("5/minute")
-async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_login(body: AdminLoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     
@@ -39,6 +39,24 @@ async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSessio
     access_token = create_access_token(subject=user.id)
     refresh_token = create_refresh_token(subject=user.id)
     
+    # Set secure HttpOnly cookies for admin auth
+    response.set_cookie(
+        key="admin_access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    response.set_cookie(
+        key="admin_refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+    )
+    
     return ApiResponse(
         success=True,
         message="Login successful",
@@ -56,8 +74,17 @@ async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSessio
 
 @router.post("/refresh", response_model=ApiResponse[TokenResponse])
 @limiter.limit("10/minute")
-async def refresh_token(body: RefreshTokenRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    payload = decode_token(body.refreshToken)
+async def refresh_token(request: Request, response: Response, body: RefreshTokenRequest = None, db: AsyncSession = Depends(get_db)):
+    ref_token = None
+    if body and body.refreshToken:
+        ref_token = body.refreshToken
+    else:
+        ref_token = request.cookies.get("admin_refresh_token")
+        
+    if not ref_token:
+        raise ApiException("Refresh token is required", 401)
+        
+    payload = decode_token(ref_token)
     if payload.get("type") != "refresh":
         raise ApiException("Invalid token type", 401)
         
@@ -74,6 +101,24 @@ async def refresh_token(body: RefreshTokenRequest, request: Request, db: AsyncSe
     access_token = create_access_token(subject=user.id)
     new_refresh_token = create_refresh_token(subject=user.id)
     
+    # Update cookies
+    response.set_cookie(
+        key="admin_access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    response.set_cookie(
+        key="admin_refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+    )
+    
     return ApiResponse(
         success=True,
         data=TokenResponse(
@@ -87,3 +132,18 @@ async def refresh_token(body: RefreshTokenRequest, request: Request, db: AsyncSe
             }
         )
     )
+
+@router.post("/admin/logout", response_model=ApiResponse)
+async def admin_logout(response: Response):
+    response.delete_cookie(
+        key="admin_access_token",
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+    )
+    response.delete_cookie(
+        key="admin_refresh_token",
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+    )
+    return ApiResponse(success=True, message="Logged out successfully")
+

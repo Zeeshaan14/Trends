@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Numeric, ForeignKey, DateTime, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -8,6 +8,9 @@ from sqlalchemy.sql import func
 from .base import Base
 from .enums import PaymentStatus
 import cuid
+
+if TYPE_CHECKING:
+    from .order import Order
 
 class Payment(Base):
     __tablename__ = "payments"

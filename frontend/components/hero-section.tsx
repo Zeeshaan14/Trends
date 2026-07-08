@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { ArrowRight, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import Link from "next/link"
 
 export function HeroSection() {
   return (
@@ -62,17 +63,20 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-wrap items-center gap-4"
             >
-              <Button
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base font-semibold group"
-              >
-                Browse Designs
-                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
+              <Link href="/categories" passHref>
+                <Button
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base font-semibold group"
+                >
+                  Browse Designs
+                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
               <Button
                 size="lg"
                 variant="outline"
                 className="border-border text-foreground hover:bg-secondary h-14 px-6 bg-transparent"
+                onClick={() => window.open("https://www.youtube.com", "_blank")}
               >
                 <Play className="mr-2 h-5 w-5 fill-current" />
                 Watch Film
