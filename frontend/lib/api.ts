@@ -219,10 +219,20 @@ async function getJerseyUploadUrl(
     fileType: "design" | "preview",
     file: File,
     jerseyId?: number,
-): Promise<{ uploadUrl: string; fileKey: string }> {
+): Promise<{ uploadUrl: string; fileKey: string; signedContentType: string }> {
     const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
     }
+
+    // The backend determines the canonical content-type used to sign the URL.
+    // For design files it always uses "application/zip" regardless of what the
+    // browser reports in file.type. We must pass the EXACT same value on the PUT.
+    const signedContentType =
+        fileType === "design"
+            ? "application/zip"
+            : file.type && file.type !== "application/octet-stream"
+              ? file.type
+              : "image/jpeg"
 
     const response = await fetchApi<ApiResponse<{ uploadUrl: string; fileKey: string }>>(
         "/jerseys/upload-url",
@@ -232,30 +242,37 @@ async function getJerseyUploadUrl(
             body: JSON.stringify({
                 fileType,
                 filename: file.name,
-                contentType: file.type || "application/octet-stream",
+                contentType: signedContentType,
                 jerseyId,
             }),
         },
     )
 
-    return response.data
+    return { ...response.data, signedContentType }
 }
 
-async function uploadFileToR2(uploadUrl: string, file: File): Promise<void> {
+async function uploadFileToR2(uploadUrl: string, file: File, contentType: string): Promise<void> {
+    console.log("[uploadFileToR2] PUT", uploadUrl, "contentType:", contentType, "fileSize:", file.size)
     const response = await fetch(uploadUrl, {
         method: "PUT",
         headers: {
-            "Content-Type": file.type || "application/octet-stream",
+            // Must exactly match the ContentType the presigned URL was signed with.
+            "Content-Type": contentType,
         },
         body: file,
     })
 
     if (!response.ok) {
+        const body = await response.text().catch(() => "")
+        console.error("[uploadFileToR2] PUT failed:", response.status, body)
         throw new ApiError(
             response.status,
-            "Failed to upload file to storage. Check R2 CORS settings for your site origin.",
+            `Failed to upload file to storage (${response.status}). ` +
+            `Check R2 CORS settings and that Content-Type matches the signed URL. ` +
+            (body ? `R2 said: ${body.slice(0, 200)}` : ""),
         )
     }
+    console.log("[uploadFileToR2] PUT success:", response.status)
 }
 
 async function uploadJerseyFilesViaPresignedUrl(
@@ -267,14 +284,14 @@ async function uploadJerseyFilesViaPresignedUrl(
     let previewImageKey: string | undefined
 
     if (data.designFile) {
-        const { uploadUrl, fileKey } = await getJerseyUploadUrl(token, "design", data.designFile, jerseyId)
-        await uploadFileToR2(uploadUrl, data.designFile)
+        const { uploadUrl, fileKey, signedContentType } = await getJerseyUploadUrl(token, "design", data.designFile, jerseyId)
+        await uploadFileToR2(uploadUrl, data.designFile, signedContentType)
         designFileKey = fileKey
     }
 
     if (data.previewImage) {
-        const { uploadUrl, fileKey } = await getJerseyUploadUrl(token, "preview", data.previewImage, jerseyId)
-        await uploadFileToR2(uploadUrl, data.previewImage)
+        const { uploadUrl, fileKey, signedContentType } = await getJerseyUploadUrl(token, "preview", data.previewImage, jerseyId)
+        await uploadFileToR2(uploadUrl, data.previewImage, signedContentType)
         previewImageKey = fileKey
     }
 

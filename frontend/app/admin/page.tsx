@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { adminLogin } from "@/lib/api"
 import { setStoredAdminUser, setStoredAdminToken } from "@/lib/auth/admin-session"
-import { setAuthCookies } from "@/app/actions"
+
 
 export default function AdminLoginPage() {
     const router = useRouter()
@@ -56,8 +56,13 @@ export default function AdminLoginPage() {
         try {
             const session = await adminLogin(formData.email, formData.password)
 
-            // Set cookies directly on the Next.js frontend domain
-            await setAuthCookies(session.accessToken, session.refreshToken)
+            // Set httpOnly cookies via Next.js API route (more reliable than Server Actions from client components)
+            const cookieRes = await fetch("/api/set-admin-cookies", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ accessToken: session.accessToken, refreshToken: session.refreshToken }),
+            })
+            if (!cookieRes.ok) throw new Error("Failed to set session cookies")
 
             // Store ONLY non-sensitive user profile in local storage
             setStoredAdminUser(session.user)
@@ -69,6 +74,9 @@ export default function AdminLoginPage() {
                 description: `Welcome back, ${session.user.companyName}!`,
             })
 
+            // Refresh the router first so Next.js re-syncs the cookie state
+            // before the middleware checks it on the dashboard navigation.
+            router.refresh()
             router.push("/admin/dashboard")
         } catch (error: any) {
             const nextAttempts = failedAttempts + 1

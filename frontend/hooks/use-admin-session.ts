@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AdminUser } from "../lib/api"
 import { getStoredAdminUser, getStoredAdminToken, clearStoredAdmin } from "../lib/auth/admin-session"
-import { clearAuthCookies } from "@/app/actions"
+
 
 export function useAdminSession(redirectOnFail: boolean = true) {
     const router = useRouter()
@@ -30,9 +30,9 @@ export function useAdminSession(redirectOnFail: boolean = true) {
     const logout = async () => {
         setLoading(true)
         try {
-            await clearAuthCookies()
-            // Call backend logout to delete the cookies
-            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+            // Clear httpOnly cookies via Next.js API route
+            await fetch("/api/clear-admin-cookies", { method: "POST" }).catch(() => {})
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
             await fetch(`${API_BASE}/auth/admin/logout`, {
                 method: "POST",
                 credentials: "include",

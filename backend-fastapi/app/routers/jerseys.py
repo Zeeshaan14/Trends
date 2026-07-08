@@ -100,7 +100,13 @@ def build_upload_file_key(file_type: str, filename: str, jersey_id: Optional[int
 async def finalize_pending_preview_key(pending_key: str, jersey_id: int) -> str:
     filename = pending_key.split("/")[-1]
     dest_key = f"previews/{jersey_id}/{filename}"
-    await copy_r2_object(pending_key, dest_key)
+    
+    import mimetypes
+    content_type, _ = mimetypes.guess_type(filename)
+    if not content_type:
+        content_type = "image/jpeg"
+        
+    await copy_r2_object(pending_key, dest_key, content_type=content_type)
     try:
         await delete_preview_image_from_r2(pending_key)
     except Exception:
