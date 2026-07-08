@@ -19,15 +19,14 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { getJerseys, getCategories, createJerseyAdmin, updateJerseyAdmin, deleteJerseyAdmin, AdminLoginResponse } from "@/lib/api"
-import { Jersey, Category } from "@/lib/types"
+import { getJerseys, createJerseyAdmin, updateJerseyAdmin, deleteJerseyAdmin, AdminLoginResponse } from "@/lib/api"
+import { Jersey } from "@/lib/types"
 
 export default function AdminJerseysPage() {
     const router = useRouter()
     const { toast } = useToast()
     const [session, setSession] = useState<AdminLoginResponse | null>(null)
     const [jerseys, setJerseys] = useState<Jersey[]>([])
-    const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -41,7 +40,6 @@ export default function AdminJerseysPage() {
         image: "",
         badge: "",
         badgeColor: "",
-        categoryId: "",
     })
     const [designFile, setDesignFile] = useState<File | null>(null)
     const [previewImage, setPreviewImage] = useState<File | null>(null)
@@ -56,13 +54,9 @@ export default function AdminJerseysPage() {
     }, [router])
 
     useEffect(() => {
-        Promise.all([
-            getJerseys({ limit: 100 }),
-            getCategories(),
-        ])
-            .then(([jerseysRes, categoriesRes]) => {
+        getJerseys({ limit: 100 })
+            .then((jerseysRes) => {
                 setJerseys(jerseysRes.data)
-                setCategories(categoriesRes)
             })
             .catch(console.error)
             .finally(() => setLoading(false))
@@ -72,7 +66,7 @@ export default function AdminJerseysPage() {
         e.preventDefault()
         if (!session) return
 
-        if (!formData.name || !formData.player || !formData.price || !formData.categoryId || (!formData.image && !previewImage)) {
+        if (!formData.name || !formData.player || !formData.price || (!formData.image && !previewImage)) {
             toast({ title: "Missing Fields", description: "Please fill in all required fields. You must provide an Image URL or upload a Preview Image." })
             return
         }
@@ -88,7 +82,6 @@ export default function AdminJerseysPage() {
                     image: formData.image,
                     badge: formData.badge || undefined,
                     badgeColor: formData.badgeColor || undefined,
-                    categoryId: formData.categoryId,
                     designFile: designFile || undefined,
                     previewImage: previewImage || undefined,
                 })
@@ -103,7 +96,6 @@ export default function AdminJerseysPage() {
                     image: formData.image,
                     badge: formData.badge || undefined,
                     badgeColor: formData.badgeColor || undefined,
-                    categoryId: formData.categoryId,
                     designFile: designFile || undefined,
                     previewImage: previewImage || undefined,
                 })
@@ -113,7 +105,7 @@ export default function AdminJerseysPage() {
 
             setFormData({
                 name: "", player: "", price: "", originalPrice: "",
-                image: "", badge: "", badgeColor: "", categoryId: "",
+                image: "", badge: "", badgeColor: "",
             })
             setDesignFile(null)
             setPreviewImage(null)
@@ -136,7 +128,6 @@ export default function AdminJerseysPage() {
             image: jersey.image,
             badge: jersey.badge || "",
             badgeColor: jersey.badgeColor || "",
-            categoryId: jersey.categoryId.toString(),
         })
         setShowForm(true)
         window.scrollTo({ top: 0, behavior: "smooth" })
@@ -154,27 +145,41 @@ export default function AdminJerseysPage() {
         }
     }
 
+    const handleLogout = () => {
+        localStorage.removeItem("adminUser")
+        router.push("/admin")
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-background to-secondary/10 pt-24 pb-12 px-4">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-10">
-                    <Link
-                        href="/admin/dashboard"
-                        className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4"
-                    >
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Dashboard
-                    </Link>
+                    {session?.user.role === "SUPERADMIN" && (
+                        <Link
+                            href="/admin/dashboard"
+                            className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4"
+                        >
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Dashboard
+                        </Link>
+                    )}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <h1 className="font-[var(--font-oswald)] text-4xl font-bold text-foreground">
-                            JERSEYS
-                        </h1>
+                        <div className="flex items-center gap-4">
+                            <h1 className="font-[var(--font-oswald)] text-4xl font-bold text-foreground">
+                                JERSEYS
+                            </h1>
+                            {session?.user.role === "ADMIN" && (
+                                <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs">
+                                    Logout
+                                </Button>
+                            )}
+                        </div>
                         <Button onClick={() => {
                             setEditingId(null)
                             setFormData({
                                 name: "", player: "", price: "", originalPrice: "",
-                                image: "", badge: "", badgeColor: "", categoryId: "",
+                                image: "", badge: "", badgeColor: "",
                             })
                             setShowForm(!showForm)
                         }} className="gap-2">
@@ -273,19 +278,6 @@ export default function AdminJerseysPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-2">Category *</label>
-                                <select
-                                    value={formData.categoryId}
-                                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                                    className="w-full h-10 px-3 rounded-md bg-background/50 border border-white/10 text-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-                                >
-                                    <option value="">Select category</option>
-                                    {categories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
                                 <label className="block text-sm font-medium text-foreground mb-2">Badge</label>
                                 <Input
                                     value={formData.badge}
@@ -344,7 +336,6 @@ export default function AdminJerseysPage() {
                                     <p className="text-sm text-muted-foreground mb-3">{jersey.player}</p>
                                     <div className="flex items-center justify-between mt-auto">
                                         <span className="font-[var(--font-oswald)] font-bold text-xl text-foreground">₹{Number(jersey.price).toFixed(0)}</span>
-                                        <span className="text-xs font-medium px-2 py-1 bg-secondary/50 rounded-md text-muted-foreground">{jersey.categoryId}</span>
                                     </div>
                                     <div className="flex gap-2 mt-5 pt-4 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                         <Button

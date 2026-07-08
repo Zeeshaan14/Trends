@@ -2,7 +2,6 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Query, Form, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
-from sqlalchemy.orm import selectinload
 from typing import Optional
 import math
 import re
@@ -72,7 +71,6 @@ def validate_preview_image(file: UploadFile):
 
 @router.get("", response_model=PaginatedResponse)
 async def get_all_jerseys(
-    categoryId: Optional[str] = None,
     minPrice: Optional[float] = None,
     maxPrice: Optional[float] = None,
     search: Optional[str] = None,
@@ -80,10 +78,7 @@ async def get_all_jerseys(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Jersey).options(selectinload(Jersey.category))
-    
-    if categoryId:
-        query = query.where(Jersey.category_id == categoryId)
+    query = select(Jersey)
         
     if minPrice is not None:
         query = query.where(Jersey.price >= minPrice)
@@ -125,8 +120,6 @@ async def get_all_jerseys(
             "image": j.image,
             "badge": j.badge,
             "badgeColor": j.badge_color,
-            "categoryId": j.category_id,
-            "category": {"id": j.category.id, "name": j.category.name} if j.category else None
         })
         
     return PaginatedResponse(
@@ -144,7 +137,6 @@ async def get_all_jerseys(
 async def get_jersey_by_id(id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Jersey)
-        .options(selectinload(Jersey.category))
         .where(Jersey.id == id)
     )
     jersey = result.scalar_one_or_none()
@@ -166,8 +158,6 @@ async def get_jersey_by_id(id: int, db: AsyncSession = Depends(get_db)):
             "hasDesignFile": bool(jersey.r2_file_key),
             "badge": jersey.badge,
             "badgeColor": jersey.badge_color,
-            "categoryId": jersey.category_id,
-            "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
     )
 
@@ -180,7 +170,6 @@ async def create_jersey(
     player: str = Form(...),
     price: Decimal = Form(...),
     image: Optional[str] = Form(None),
-    categoryId: str = Form(...),
     originalPrice: Optional[Decimal] = Form(None),
     badge: Optional[str] = Form(None),
     badgeColor: Optional[str] = Form(None),
@@ -206,7 +195,6 @@ async def create_jersey(
         image=display_image,
         badge=badge,
         badge_color=badgeColor,
-        category_id=categoryId,
     )
     db.add(jersey)
     await db.flush()  # get jersey.id for the R2 key
@@ -225,8 +213,8 @@ async def create_jersey(
 
     await db.commit()
     
-    # Load category
-    result = await db.execute(select(Jersey).options(selectinload(Jersey.category)).where(Jersey.id == jersey.id))
+    # Load jersey
+    result = await db.execute(select(Jersey).where(Jersey.id == jersey.id))
     jersey = result.scalar_one()
     
     return ApiResponse(
@@ -238,7 +226,6 @@ async def create_jersey(
             "price": float(jersey.price),
             "image": jersey.image,
             "hasDesignFile": bool(jersey.r2_file_key),
-            "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
     )
 
@@ -252,7 +239,6 @@ async def update_jersey(
     image: Optional[str] = Form(None),
     badge: Optional[str] = Form(None),
     badgeColor: Optional[str] = Form(None),
-    categoryId: Optional[str] = Form(None),
     design_file: Optional[UploadFile] = File(None),
     preview_image: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -279,8 +265,6 @@ async def update_jersey(
         jersey.badge = badge
     if badgeColor is not None:
         jersey.badge_color = badgeColor
-    if categoryId is not None:
-        jersey.category_id = categoryId
 
     # Handle preview image upload/replacement
     if preview_image and preview_image.filename:
@@ -318,7 +302,7 @@ async def update_jersey(
     await db.commit()
     
     # Fetch fresh
-    result = await db.execute(select(Jersey).options(selectinload(Jersey.category)).where(Jersey.id == id))
+    result = await db.execute(select(Jersey).where(Jersey.id == id))
     jersey = result.scalar_one()
     
     return ApiResponse(
@@ -330,7 +314,6 @@ async def update_jersey(
             "price": float(jersey.price),
             "image": jersey.image,
             "hasDesignFile": bool(jersey.r2_file_key),
-            "category": {"id": jersey.category.id, "name": jersey.category.name} if jersey.category else None
         }
     )
 

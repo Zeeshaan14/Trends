@@ -41,7 +41,11 @@ export default function AdminLoginPage() {
                 description: `Welcome back, ${session.user.companyName}!`,
             })
 
-            router.push("/admin/dashboard")
+            if (session.user.role === "ADMIN") {
+                router.push("/admin/jerseys")
+            } else {
+                router.push("/admin/dashboard")
+            }
         } catch (error: any) {
             toast({
                 title: "Login Failed",

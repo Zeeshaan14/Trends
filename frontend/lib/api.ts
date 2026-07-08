@@ -1,6 +1,4 @@
 import {
-    Category,
-    CategoryWithJerseys,
     Jersey,
     JerseysResponse,
     ApiResponse,
@@ -37,25 +35,10 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 // ============================================
-// Categories
-// ============================================
-
-export async function getCategories(): Promise<Category[]> {
-    const response = await fetchApi<ApiResponse<Category[]>>("/categories")
-    return response.data
-}
-
-export async function getCategoryById(id: string): Promise<CategoryWithJerseys> {
-    const response = await fetchApi<ApiResponse<CategoryWithJerseys>>(`/categories/${id}`)
-    return response.data
-}
-
-// ============================================
 // Jerseys
 // ============================================
 
 interface GetJerseysParams {
-    categoryId?: string
     search?: string
     minPrice?: number
     maxPrice?: number
@@ -66,7 +49,6 @@ interface GetJerseysParams {
 export async function getJerseys(params?: GetJerseysParams): Promise<JerseysResponse> {
     const searchParams = new URLSearchParams()
 
-    if (params?.categoryId) searchParams.set("categoryId", params.categoryId)
     if (params?.search) searchParams.set("search", params.search)
     if (params?.minPrice) searchParams.set("minPrice", params.minPrice.toString())
     if (params?.maxPrice) searchParams.set("maxPrice", params.maxPrice.toString())
@@ -214,7 +196,6 @@ export async function createJerseyAdmin(token: string, data: {
     image?: string
     badge?: string
     badgeColor?: string
-    categoryId: string
     designFile?: File
     previewImage?: File
 }): Promise<Jersey> {
@@ -226,7 +207,6 @@ export async function createJerseyAdmin(token: string, data: {
     if (data.image) formData.append("image", data.image)
     if (data.badge) formData.append("badge", data.badge)
     if (data.badgeColor) formData.append("badgeColor", data.badgeColor)
-    formData.append("categoryId", data.categoryId)
     if (data.designFile) formData.append("design_file", data.designFile)
     if (data.previewImage) formData.append("preview_image", data.previewImage)
 
@@ -263,7 +243,6 @@ export async function updateJerseyAdmin(token: string, id: number, data: {
     image?: string
     badge?: string
     badgeColor?: string
-    categoryId?: string
     designFile?: File
     previewImage?: File
 }): Promise<Jersey> {
@@ -275,7 +254,6 @@ export async function updateJerseyAdmin(token: string, id: number, data: {
     if (data.image) formData.append("image", data.image)
     if (data.badge !== undefined) formData.append("badge", data.badge || "")
     if (data.badgeColor !== undefined) formData.append("badgeColor", data.badgeColor || "")
-    if (data.categoryId) formData.append("categoryId", data.categoryId)
     if (data.designFile) formData.append("design_file", data.designFile)
     if (data.previewImage) formData.append("preview_image", data.previewImage)
 

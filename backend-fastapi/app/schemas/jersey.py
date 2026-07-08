@@ -10,7 +10,6 @@ class CreateJerseyRequest(BaseModel):
     image: str
     badge: Optional[str] = None
     badgeColor: Optional[str] = None
-    categoryId: str
 
 class UpdateJerseyRequest(BaseModel):
     name: Optional[str] = None
@@ -20,10 +19,8 @@ class UpdateJerseyRequest(BaseModel):
     image: Optional[str] = None
     badge: Optional[str] = None
     badgeColor: Optional[str] = None
-    categoryId: Optional[str] = None
 
 class JerseyFilterParams(BaseModel):
-    categoryId: Optional[str] = None
     minPrice: Optional[float] = Field(None, ge=0)
     maxPrice: Optional[float] = Field(None, ge=0)
     search: Optional[str] = None

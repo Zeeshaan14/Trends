@@ -135,7 +135,7 @@ async def get_order_by_id(id: str, request: Request, email: str | None = None, d
                 if user_id:
                     user_res = await db.execute(select(User).where(User.id == user_id))
                     user = user_res.scalar_one_or_none()
-                    if user and user.role == Role.ADMIN:
+                    if user and user.role == Role.SUPERADMIN:
                         is_admin = True
         except Exception:
             pass

@@ -24,7 +24,7 @@ async def admin_login(body: AdminLoginRequest, request: Request, db: AsyncSessio
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     
-    if not user or user.role != Role.ADMIN:
+    if not user or user.role not in (Role.ADMIN, Role.SUPERADMIN):
         raise ApiException("Invalid credentials", 401)
         
     if not user.password or not verify_password(body.password, user.password):

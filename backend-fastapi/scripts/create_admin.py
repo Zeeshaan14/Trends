@@ -21,6 +21,7 @@ async def create_admin(
     company_name: str,
     phone: str,
     update_existing: bool,
+    role: Role,
 ) -> None:
     async with async_session_maker() as db:
         result = await db.execute(select(User).where(User.email == email))
@@ -29,36 +30,38 @@ async def create_admin(
         if user:
             if not update_existing:
                 print(f"User already exists: {email}")
-                print("Re-run with --update to promote them to admin and reset the password.")
+                print("Re-run with --update to promote them and reset the password.")
                 return
 
-            user.role = Role.ADMIN
+            user.role = role
             user.company_name = company_name
             user.phone = phone
             user.password = get_password_hash(password)
             await db.commit()
-            print(f"Updated existing user to admin: {email}")
+            print(f"Updated existing user to role {role.value}: {email}")
             return
 
         user = User(
             email=email,
             company_name=company_name,
             phone=phone,
-            role=Role.ADMIN,
+            role=role,
             password=get_password_hash(password),
         )
         db.add(user)
         await db.commit()
-        print(f"Created admin user: {email}")
+        print(f"Created user with role {role.value}: {email}")
 
 
 async def main_async(args: argparse.Namespace) -> None:
+    role_enum = Role(args.role)
     await create_admin(
         email=args.email,
         password=args.password,
         company_name=args.company_name,
         phone=args.phone,
         update_existing=args.update,
+        role=role_enum,
     )
     await engine.dispose()
 
@@ -70,9 +73,15 @@ def main() -> None:
     parser.add_argument("--company-name", default="NU Jerseys Admin")
     parser.add_argument("--phone", default="0000000000")
     parser.add_argument(
+        "--role",
+        choices=["ADMIN", "SUPERADMIN"],
+        default="SUPERADMIN",
+        help="Role to assign (default: SUPERADMIN).",
+    )
+    parser.add_argument(
         "--update",
         action="store_true",
-        help="Update an existing user to admin and reset their password.",
+        help="Update an existing user and reset their password.",
     )
     args = parser.parse_args()
     asyncio.run(main_async(args))

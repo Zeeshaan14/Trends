@@ -12,7 +12,7 @@ from app.models.user import User
 from app.models.jersey import Jersey
 from app.models.enums import PaymentStatus
 from app.schemas.common import PaginatedResponse, ApiResponse, PaginationMeta
-from app.dependencies.auth import get_admin_user
+from app.dependencies.auth import get_superadmin_user
 
 # Import endpoints from other routers to reuse logic if we wanted to, 
 # but we can also just define them directly. Let's just define dashboard and listing logic here.
@@ -22,7 +22,7 @@ from app.dependencies.auth import get_admin_user
 router = APIRouter()
 
 @router.get("/dashboard", response_model=ApiResponse)
-async def get_dashboard_stats(db: AsyncSession = Depends(get_db), admin=Depends(get_admin_user)):
+async def get_dashboard_stats(db: AsyncSession = Depends(get_db), admin=Depends(get_superadmin_user)):
     total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
     total_orders = (await db.execute(select(func.count(Order.id)))).scalar() or 0
     total_jerseys = (await db.execute(select(func.count(Jersey.id)))).scalar() or 0
@@ -82,7 +82,7 @@ async def get_all_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user)
+    admin=Depends(get_superadmin_user)
 ):
     query = select(Order).options(
         selectinload(Order.user), 
@@ -144,7 +144,7 @@ async def get_all_payments(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user)
+    admin=Depends(get_superadmin_user)
 ):
     query = select(Payment).options(selectinload(Payment.order).selectinload(Order.user))
     if status:
@@ -168,7 +168,7 @@ async def get_all_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user)
+    admin=Depends(get_superadmin_user)
 ):
     query = select(User)
     count_query = select(func.count()).select_from(query.subquery())
@@ -191,10 +191,10 @@ async def get_design_status(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_admin_user),
+    admin=Depends(get_superadmin_user),
 ):
     """List jerseys with pagination and their R2 design file upload status."""
-    query = select(Jersey).options(selectinload(Jersey.category))
+    query = select(Jersey)
     
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
@@ -215,7 +215,6 @@ async def get_design_status(
                 "image": j.image,
                 "r2FileKey": j.r2_file_key,
                 "hasDesign": bool(j.r2_file_key),
-                "category": {"id": j.category.id, "name": j.category.name} if j.category else None,
             }
             for j in jerseys
         ],

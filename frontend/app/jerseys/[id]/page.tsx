@@ -31,8 +31,8 @@ export default function JerseyPage() {
                 const jerseyData = await getJerseyById(parseInt(id))
                 setJersey(jerseyData)
 
-                // Fetch related jerseys from same category
-                const relatedData = await getJerseys({ categoryId: jerseyData.categoryId, limit: 5 })
+                // Fetch other premium jerseys
+                const relatedData = await getJerseys({ limit: 5 })
                 setRelatedJerseys(relatedData.data.filter((j) => j.id !== jerseyData.id).slice(0, 4))
             } catch (error) {
                 console.error("Failed to load jersey:", error)
@@ -92,9 +92,7 @@ export default function JerseyPage() {
                 <nav className="flex items-center text-sm text-muted-foreground mb-8">
                     <Link href="/" className="hover:text-primary transition-colors">Home</Link>
                     <ChevronRight className="h-4 w-4 mx-2" />
-                    <Link href="/categories" className="hover:text-primary transition-colors">Categories</Link>
-                    <ChevronRight className="h-4 w-4 mx-2" />
-                    <Link href={`/categories/${jersey.categoryId}`} className="hover:text-primary transition-colors uppercase">{jersey.categoryId}</Link>
+                    <Link href="/jerseys" className="hover:text-primary transition-colors">Jerseys</Link>
                     <ChevronRight className="h-4 w-4 mx-2" />
                     <span className="text-foreground font-medium truncate">{jersey.name}</span>
                 </nav>
@@ -190,10 +188,6 @@ export default function JerseyPage() {
                             <div className="flex gap-2 text-sm text-muted-foreground">
                                 <span className="font-medium text-foreground">SKU:</span>
                                 <span>JR-{jersey.id}00{jersey.id}</span>
-                            </div>
-                            <div className="flex gap-2 text-sm text-muted-foreground mt-1">
-                                <span className="font-medium text-foreground">Category:</span>
-                                <span className="capitalize">{jersey.categoryId}</span>
                             </div>
                         </div>
                     </motion.div>

@@ -14,7 +14,7 @@ from app.security.rate_limit import limiter
 from app.logging_config import setup_logging
 
 from app.routers import (
-    auth, categories, jerseys, orders, payments, admin
+    auth, jerseys, orders, payments, admin
 )
 
 import logging
@@ -138,7 +138,7 @@ if is_prod:
 
 # Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
-app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
+
 app.include_router(jerseys.router, prefix="/api/jerseys", tags=["Jerseys"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])

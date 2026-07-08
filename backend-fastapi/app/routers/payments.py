@@ -14,7 +14,7 @@ from app.schemas.payment import VerifyPaymentRequest
 from app.schemas.common import ApiResponse
 from app.exceptions import ApiException
 from app.services.razorpay_service import verify_payment_signature, verify_webhook_signature
-from app.dependencies.auth import get_admin_user
+from app.dependencies.auth import get_superadmin_user
 from app.security.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
@@ -182,7 +182,7 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/{id}", response_model=ApiResponse)
-async def get_payment_by_id(id: str, db: AsyncSession = Depends(get_db), admin=Depends(get_admin_user)):
+async def get_payment_by_id(id: str, db: AsyncSession = Depends(get_db), admin=Depends(get_superadmin_user)):
     result = await db.execute(
         select(Payment)
         .options(

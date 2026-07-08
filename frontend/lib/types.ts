@@ -1,19 +1,5 @@
 // TypeScript types matching backend API responses
 
-export interface Category {
-    id: string
-    name: string
-    image: string
-    description: string
-    _count?: {
-        jerseys: number
-    }
-}
-
-export interface CategoryWithJerseys extends Category {
-    jerseys: Jersey[]
-}
-
 export interface Jersey {
     id: number
     name: string
@@ -26,8 +12,6 @@ export interface Jersey {
     hasDesignFile?: boolean
     badge: string | null
     badgeColor: string | null
-    categoryId: string
-    category?: Category
     createdAt: string
     updatedAt: string
 }

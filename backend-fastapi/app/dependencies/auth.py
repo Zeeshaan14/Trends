@@ -37,6 +37,14 @@ async def get_current_user(
 async def get_admin_user(
     user: User = Depends(get_current_user)
 ) -> User:
-    if user.role != Role.ADMIN:
+    if user.role not in (Role.ADMIN, Role.SUPERADMIN):
         raise ApiException("Admin access required", 403)
     return user
+
+async def get_superadmin_user(
+    user: User = Depends(get_current_user)
+) -> User:
+    if user.role != Role.SUPERADMIN:
+        raise ApiException("Superadmin access required", 403)
+    return user
+

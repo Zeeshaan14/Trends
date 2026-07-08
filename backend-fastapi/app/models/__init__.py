@@ -1,7 +1,6 @@
 from .base import Base
 from .enums import Role, OrderStatus, PaymentStatus
 from .user import User
-from .category import Category
 from .jersey import Jersey
 from .order import Order, OrderItem
 from .payment import Payment
@@ -12,7 +11,6 @@ __all__ = [
     "OrderStatus",
     "PaymentStatus",
     "User",
-    "Category",
     "Jersey",
     "Order",
     "OrderItem",

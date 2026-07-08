@@ -18,11 +18,7 @@ import {
 import { CartSheet } from "@/components/cart-sheet"
 
 const navLinks = [
-  { name: "Categories", link: "/categories" },
-  { name: "Cricket", link: "/categories/cricket" },
-  { name: "Football", link: "/categories/football" },
-  { name: "Basketball", link: "/categories/basketball" },
-  { name: "Volleyball", link: "/categories/volleyball" },
+  { name: "Jerseys", link: "/jerseys" },
 ]
 
 export function SiteNavbar() {

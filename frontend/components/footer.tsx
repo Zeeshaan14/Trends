@@ -6,12 +6,7 @@ import { Instagram, Twitter, Youtube, Facebook } from "lucide-react"
 
 const footerLinks = {
   shop: [
-    { name: "Cricket Designs", href: "/categories/cricket" },
-    { name: "Football Designs", href: "/categories/football" },
-    { name: "Basketball Designs", href: "/categories/basketball" },
-    { name: "Volleyball Designs", href: "/categories/volleyball" },
-    { name: "New Arrivals", href: "/categories" },
-    { name: "Featured", href: "/categories" },
+    { name: "All Jerseys", href: "/jerseys" },
   ],
   support: [
     { name: "Contact Us", href: "#" },

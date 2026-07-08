@@ -2,33 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import Link from "next/link"
-import { Filter, Grid3X3, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react"
+import { Grid3X3, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { JerseyCard } from "@/components/jersey-card"
-import { getJerseys, getCategories } from "@/lib/api"
-import { Jersey, Category } from "@/lib/types"
+import { getJerseys } from "@/lib/api"
+import { Jersey } from "@/lib/types"
 
 export default function JerseysPage() {
     const [jerseys, setJerseys] = useState<Jersey[]>([])
-    const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [gridSize, setGridSize] = useState<"small" | "large">("large")
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const limit = 20
 
     useEffect(() => {
-        getCategories()
-            .then(setCategories)
-            .catch(console.error)
-    }, [])
-
-    useEffect(() => {
         setLoading(true)
         getJerseys({
-            categoryId: selectedCategory || undefined,
             page: currentPage,
             limit,
         })
@@ -38,12 +28,7 @@ export default function JerseysPage() {
             })
             .catch(console.error)
             .finally(() => setLoading(false))
-    }, [selectedCategory, currentPage])
-
-    const handleCategoryFilter = (categoryId: string | null) => {
-        setSelectedCategory(categoryId)
-        setCurrentPage(1)
-    }
+    }, [currentPage])
 
     return (
         <>
@@ -69,36 +54,6 @@ export default function JerseysPage() {
                     >
                         Browse our complete collection of premium jersey designs
                     </motion.p>
-                </div>
-            </section>
-
-            {/* Category Filter */}
-            <section className="py-8 px-4 sm:px-6 lg:px-8 border-b border-border">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center gap-4 overflow-x-auto pb-2">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">Filter:</span>
-                        <button
-                            onClick={() => handleCategoryFilter(null)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === null
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary text-foreground hover:bg-secondary/80"
-                                }`}
-                        >
-                            All
-                        </button>
-                        {categories.map((cat) => (
-                            <button
-                                key={cat.id}
-                                onClick={() => handleCategoryFilter(cat.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${cat.id === selectedCategory
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-secondary text-foreground hover:bg-secondary/80"
-                                    }`}
-                            >
-                                {cat.name}
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </section>
 
@@ -170,13 +125,6 @@ export default function JerseysPage() {
                     {!loading && jerseys.length === 0 && (
                         <div className="text-center py-16">
                             <p className="text-muted-foreground text-lg">No jerseys found.</p>
-                            <Button
-                                variant="outline"
-                                className="mt-4"
-                                onClick={() => handleCategoryFilter(null)}
-                            >
-                                Clear Filters
-                            </Button>
                         </div>
                     )}
 
