@@ -10,7 +10,7 @@ const footerLinks = {
     { name: "All Jerseys", href: "/jerseys" },
   ],
   support: [
-    { name: "Contact Us", href: "#" },
+    { name: "Contact Us", href: "mailto:nu3jersey@gmail.com" },
     { name: "FAQ", href: "#" },
     { name: "Licensing Help", href: "#" },
     { name: "Download Guide", href: "#" },
