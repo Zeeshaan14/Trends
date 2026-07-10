@@ -22,11 +22,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preload" href="/nu3%20logo.png" as="image" type="image/png" />
       </head>
-      <body className={`font-sans antialiased ${_inter.variable} ${_oswald.variable}`}>
+      <body suppressHydrationWarning className={`font-sans antialiased ${_inter.variable} ${_oswald.variable}`}>
         <CartProvider>
           <SiteNavbar />
           <main className="min-h-screen bg-background">
