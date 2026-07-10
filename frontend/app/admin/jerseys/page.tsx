@@ -191,7 +191,7 @@ export default function AdminJerseysPage() {
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-10">
-                    {session?.user.role === "SUPERADMIN" && (
+                    {admin?.role === "SUPERADMIN" && (
                         <Link
                             href="/admin/dashboard"
                             className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4"
@@ -205,7 +205,7 @@ export default function AdminJerseysPage() {
                             <h1 className="font-[var(--font-oswald)] text-4xl font-bold text-foreground">
                                 JERSEYS
                             </h1>
-                            {session?.user.role === "ADMIN" && (
+                            {admin?.role === "ADMIN" && (
                                 <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs">
                                     Logout
                                 </Button>
