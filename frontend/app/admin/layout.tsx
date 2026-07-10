@@ -32,10 +32,10 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar Navigation */}
-      <aside className="hidden w-64 border-r border-border bg-card p-6 md:block">
-        <div className="flex h-full flex-col justify-between space-y-8">
+      <aside className="hidden w-64 flex-col justify-between border-r border-border bg-card p-6 md:flex h-full">
+        <div className="space-y-8">
           <Link href="/" className="inline-block">
             <Image
               src="/nu3%20logo.png"
@@ -47,29 +47,33 @@ export default function AdminLayout({
           </Link>
           
           <nav className="space-y-1">
-            <Link
-              href="/admin/dashboard"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                pathname === "/admin/dashboard"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </Link>
-            
-            <Link
-              href="/admin/orders"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                pathname === "/admin/orders"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              <ShoppingCart className="h-4 w-4" />
-              Orders
-            </Link>
+            {admin?.role === "SUPERADMIN" && (
+              <>
+                <Link
+                  href="/admin/dashboard"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === "/admin/dashboard"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Link>
+                
+                <Link
+                  href="/admin/orders"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === "/admin/orders"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Orders
+                </Link>
+              </>
+            )}
             
             <Link
               href="/admin/jerseys"
@@ -110,12 +114,16 @@ export default function AdminLayout({
           
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2">
-              <Link href="/admin/dashboard" className={`p-2 rounded-lg ${pathname === "/admin/dashboard" ? "text-primary" : "text-muted-foreground"}`}>
-                <LayoutDashboard className="h-5 w-5" />
-              </Link>
-              <Link href="/admin/orders" className={`p-2 rounded-lg ${pathname === "/admin/orders" ? "text-primary" : "text-muted-foreground"}`}>
-                <ShoppingCart className="h-5 w-5" />
-              </Link>
+              {admin?.role === "SUPERADMIN" && (
+                <>
+                  <Link href="/admin/dashboard" className={`p-2 rounded-lg ${pathname === "/admin/dashboard" ? "text-primary" : "text-muted-foreground"}`}>
+                    <LayoutDashboard className="h-5 w-5" />
+                  </Link>
+                  <Link href="/admin/orders" className={`p-2 rounded-lg ${pathname === "/admin/orders" ? "text-primary" : "text-muted-foreground"}`}>
+                    <ShoppingCart className="h-5 w-5" />
+                  </Link>
+                </>
+              )}
               <Link href="/admin/jerseys" className={`p-2 rounded-lg ${pathname === "/admin/jerseys" ? "text-primary" : "text-muted-foreground"}`}>
                 <Shirt className="h-5 w-5" />
               </Link>

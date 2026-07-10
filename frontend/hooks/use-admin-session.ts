@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AdminUser } from "../lib/api"
 import { getStoredAdminUser, getStoredAdminToken, clearStoredAdmin } from "../lib/auth/admin-session"
@@ -27,7 +27,7 @@ export function useAdminSession(redirectOnFail: boolean = true) {
         setLoading(false)
     }, [router, redirectOnFail])
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         setLoading(true)
         try {
             // Clear httpOnly cookies via Next.js API route
@@ -44,7 +44,7 @@ export function useAdminSession(redirectOnFail: boolean = true) {
             setLoading(false)
             router.push("/admin")
         }
-    }
+    }, [router])
 
     return { admin, token, loading, logout, setAdmin }
 }
