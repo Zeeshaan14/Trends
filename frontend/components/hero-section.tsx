@@ -75,7 +75,7 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-border text-foreground hover:bg-secondary h-14 px-6 bg-transparent"
+                className="border-border text-foreground hover:bg-accent hover:text-accent-foreground h-14 px-6 bg-transparent"
                 onClick={() => window.open("https://www.youtube.com", "_blank")}
               >
                 <Play className="mr-2 h-5 w-5 fill-current" />

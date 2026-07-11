@@ -104,7 +104,7 @@ export function TrendingJerseys() {
             <Button
               variant="outline"
               size="lg"
-              className="border-border text-foreground hover:bg-secondary group bg-transparent"
+              className="border-border text-foreground hover:bg-accent hover:text-accent-foreground group bg-transparent"
             >
               View All Jerseys
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />

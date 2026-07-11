@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Grid3X3, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react"
+import { Grid3X3, LayoutGrid, ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { JerseyCard } from "@/components/jersey-card"
 import { getJerseys } from "@/lib/api"
 import { Jersey } from "@/lib/types"
@@ -14,21 +15,27 @@ export default function JerseysPage() {
     const [gridSize, setGridSize] = useState<"small" | "large">("large")
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
+    const [searchQuery, setSearchQuery] = useState("")
     const limit = 20
 
     useEffect(() => {
         setLoading(true)
-        getJerseys({
-            page: currentPage,
-            limit,
-        })
-            .then((response) => {
-                setJerseys(response.data)
-                setTotalPages(response.pagination?.totalPages || 1)
+        const delayDebounceFn = setTimeout(() => {
+            getJerseys({
+                page: currentPage,
+                limit,
+                search: searchQuery,
             })
-            .catch(console.error)
-            .finally(() => setLoading(false))
-    }, [currentPage])
+                .then((response) => {
+                    setJerseys(response.data)
+                    setTotalPages(response.pagination?.totalPages || 1)
+                })
+                .catch(console.error)
+                .finally(() => setLoading(false))
+        }, 300)
+
+        return () => clearTimeout(delayDebounceFn)
+    }, [currentPage, searchQuery])
 
     return (
         <>
@@ -62,9 +69,24 @@ export default function JerseysPage() {
                 <div className="max-w-7xl mx-auto">
                     {/* Header with filters */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                        <p className="text-muted-foreground">
-                            {loading ? "Loading..." : `${jerseys.length} products`}
-                        </p>
+                        <div className="flex items-center gap-4 w-full sm:w-auto">
+                            <p className="text-muted-foreground whitespace-nowrap">
+                                {loading ? "Loading..." : `${jerseys.length} products`}
+                            </p>
+                            <div className="relative flex-1 sm:flex-none">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    type="search"
+                                    placeholder="Search jerseys..."
+                                    className="pl-8 w-full sm:w-[300px]"
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value)
+                                        setCurrentPage(1)
+                                    }}
+                                />
+                            </div>
+                        </div>
 
                         <div className="flex items-center gap-2">
                             <Button
