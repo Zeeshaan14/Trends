@@ -63,7 +63,7 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-wrap items-center gap-4"
             >
-              <Link href="/categories" passHref>
+              <Link href="/jerseys" passHref>
                 <Button
                   size="lg"
                   className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base font-semibold group"
