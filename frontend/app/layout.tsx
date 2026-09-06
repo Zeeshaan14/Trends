@@ -14,6 +14,9 @@ const _oswald = Oswald({ subsets: ["latin"], variable: "--font-oswald" })
 export const metadata: Metadata = {
   title: "NU Jerseys | Premium Jersey Designs",
   description: "Discover premium jersey designs for all sports. Cricket, Football, Basketball, Volleyball & more. Get unique, high-quality jersey designs for your team.",
+  other: {
+    "p:domain_verify": "1ec2721365fb067ddfc8a57150feb152",
+  },
 }
 
 export default function RootLayout({
