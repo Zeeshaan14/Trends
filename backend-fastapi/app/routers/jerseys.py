@@ -29,7 +29,6 @@ from app.services.r2_service import (
     get_public_preview_url,
     generate_presigned_upload_url,
 )
-
 router = APIRouter()
 
 # --- File validation ---
@@ -352,7 +351,7 @@ async def create_jersey(
     # Load jersey
     result = await db.execute(select(Jersey).where(Jersey.id == jersey.id))
     jersey = result.scalar_one()
-    
+
     return ApiResponse(
         success=True,
         data={

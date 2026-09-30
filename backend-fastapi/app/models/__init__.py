@@ -4,6 +4,7 @@ from .user import User
 from .jersey import Jersey
 from .order import Order, OrderItem
 from .payment import Payment
+from .pinterest_integration import PinterestIntegration
 
 __all__ = [
     "Base",
@@ -15,4 +16,5 @@ __all__ = [
     "Order",
     "OrderItem",
     "Payment",
+    "PinterestIntegration",
 ]

@@ -26,6 +26,9 @@ class Jersey(Base):
     badge_color: Mapped[Optional[str]] = mapped_column("badgeColor", String, nullable=True)
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, default=func.now(), onupdate=func.now())
+    pinterest_exported_at: Mapped[Optional[datetime]] = mapped_column(
+        "pinterestExportedAt", DateTime, nullable=True
+    )
 
     order_items: Mapped[List["OrderItem"]] = relationship(
         back_populates="jersey",

@@ -37,6 +37,11 @@ click==8.4.1
     # via
     #   rich-toolkit
     #   uvicorn
+colorama==0.4.6
+    # via
+    #   click
+    #   typer
+    #   uvicorn
 cuid==0.4
     # via trends-backend (pyproject.toml)
 deprecated==1.3.1
@@ -71,6 +76,7 @@ httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via
+    #   trends-backend (pyproject.toml)
     #   fastapi
     #   fastapi-cloud-cli
 idna==3.18
@@ -125,6 +131,8 @@ python-dotenv==1.2.2
     #   trends-backend (pyproject.toml)
     #   pydantic-settings
     #   uvicorn
+python-json-logger==4.2.0
+    # via trends-backend (pyproject.toml)
 python-multipart==0.0.32
     # via
     #   trends-backend (pyproject.toml)
@@ -196,8 +204,6 @@ uvicorn==0.49.0
     #   fastapi
     #   fastapi-cli
     #   fastapi-cloud-cli
-uvloop==0.22.1
-    # via uvicorn
 watchfiles==1.2.0
     # via uvicorn
 websockets==16.0

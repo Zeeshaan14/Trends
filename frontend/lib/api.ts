@@ -430,5 +430,67 @@ export async function deleteJerseyAdmin(token?: string, id?: number): Promise<vo
     return response.data
 }
 
+// ============================================
+// Pinterest integration (admin)
+// ============================================
+
+export interface PinterestStatus {
+    exportBoardName: string | null
+    pendingExportCount: number
+}
+
+export async function getPinterestStatus(token?: string): Promise<PinterestStatus> {
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    const response = await fetchApi<ApiResponse<PinterestStatus>>("/admin/pinterest/status", { headers })
+    return response.data
+}
+
+export async function setPinterestExportBoard(token: string | undefined, boardName: string): Promise<void> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    await fetchApi<ApiResponse<null>>("/admin/pinterest/export-board", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ boardName }),
+    })
+}
+
+export interface PinterestCsvResult {
+    exportedCount: number
+    skippedCount: number
+}
+
+export async function downloadPinterestCsv(token: string | undefined, includeExported: boolean): Promise<PinterestCsvResult> {
+    const headers: Record<string, string> = {}
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    const query = includeExported ? "?includeExported=true" : ""
+    const url = `${API_BASE}/admin/pinterest/export-csv${query}`
+
+    const response = await fetch(url, { headers, credentials: "include" })
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Request failed" }))
+        throw new ApiError(response.status, error.message || error.error || "Failed to download CSV")
+    }
+
+    const disposition = response.headers.get("Content-Disposition") || ""
+    const match = disposition.match(/filename="?([^"]+)"?/)
+    const filename = match ? match[1] : "pinterest-pins.csv"
+    const exportedCount = Number(response.headers.get("X-Exported-Count") || 0)
+    const skippedCount = Number(response.headers.get("X-Skipped-Count") || 0)
+
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(blobUrl)
+
+    return { exportedCount, skippedCount }
+}
+
 export { ApiError }
 

@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # Public base URL for preview images (e.g. https://pub-xxx.r2.dev or https://cdn.nujerseys.com)
     R2_PUBLIC_BASE_URL: str = ""
 
+    # The real, publicly reachable storefront URL — used to build customer-
+    # facing links (e.g. product links in exported Pinterest pins). This stays
+    # the live domain even when the backend itself is running locally, since
+    # the pin is meant for the public, not the admin's own machine.
+    PUBLIC_SITE_URL: str = "https://nujerseys.com"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
     LayoutDashboard,
@@ -17,11 +17,15 @@ import {
 import { getDashboardStats, DashboardStats } from "@/lib/api"
 import { useAdminSession } from "@/hooks/use-admin-session"
 import { Button } from "@/components/ui/button"
+import { PinterestSettingsCard } from "@/components/pinterest-settings-card"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function AdminDashboardPage() {
     const { admin, token, logout } = useAdminSession(true)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const searchParams = useSearchParams()
+    const { toast } = useToast()
 
     useEffect(() => {
         if (!admin || !token) return
@@ -37,6 +41,12 @@ export default function AdminDashboardPage() {
             })
             .finally(() => setLoading(false))
     }, [admin, logout])
+
+    useEffect(() => {
+        if (searchParams.get("pinterest") === "connected") {
+            toast({ title: "Pinterest connected", description: "Pick a board below to finish setup." })
+        }
+    }, [searchParams, toast])
 
     const handleLogout = () => {
         logout()
@@ -160,6 +170,11 @@ export default function AdminDashboardPage() {
                             </div>
                         </div>
                     </Link>
+                </div>
+
+                {/* Pinterest auto-posting */}
+                <div className="mb-8">
+                    <PinterestSettingsCard token={token} />
                 </div>
 
                 {/* Recent Orders */}

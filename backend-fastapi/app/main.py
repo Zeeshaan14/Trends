@@ -14,7 +14,7 @@ from app.security.rate_limit import limiter
 from app.logging_config import setup_logging
 
 from app.routers import (
-    auth, jerseys, orders, payments, admin
+    auth, jerseys, orders, payments, admin, pinterest
 )
 
 import logging
@@ -143,6 +143,7 @@ app.include_router(jerseys.router, prefix="/api/jerseys", tags=["Jerseys"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(pinterest.router, prefix="/api/admin/pinterest", tags=["Pinterest"])
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
